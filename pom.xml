@@ -6,14 +6,26 @@
 	<version>0.80.7</version>
 	<name>JRecord-HDFS Enabled</name>
 
-  <distributionManagement>
-    <repository>
-      <id>sftp-repository</id>
-      <url>scpexe://lnxgen.senia.org/u01/m2/repository/</url>
-    </repository>
-  </distributionManagement>
+	<distributionManagement>
+		<repository>
+			<id>sftp-repository</id>
+			<url>scpexe://lnxgen.senia.org/u01/m2/repository/</url>
+		</repository>
+	</distributionManagement>
 
 	<build>
+		<resources>
+			<resource>
+				<filtering>false</filtering>
+				<directory>src/main/java</directory>
+				<includes>
+					<include>**/*.dat</include>
+				</includes>
+				<excludes>
+					<exclude>**/*.java</exclude>
+				</excludes>
+			</resource>
+		</resources>
 		<extensions>
 			<!-- Enabling the use of SSH -->
 			<extension>
