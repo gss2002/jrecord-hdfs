@@ -17,6 +17,31 @@
  *     to the record package (ie RecordException + new Constant interface
  *   - new getFieldType method added (for sorting, JasperReports)
  */
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Types;
 
 import java.util.Arrays;
@@ -41,10 +66,11 @@ public class TypeChar implements Type {
 
     private boolean numeric = false;
     private final boolean hasPadByteOveride;
+    private final boolean trim;
 
 
     public TypeChar(final boolean leftJustified) {
-    	this(leftJustified, false);
+    	this(leftJustified, false, false, false, true);
     }
     
     /**
@@ -56,11 +82,12 @@ public class TypeChar implements Type {
      * @param leftJustified left justified option
      */
     public TypeChar(final boolean leftJustified, boolean padByteOveride) {
-        super();
+        this(leftJustified, padByteOveride, false, false, true);
 
-        leftJust = leftJustified;
-        binary = false;
-        hasPadByteOveride = padByteOveride;
+//        leftJust = leftJustified;
+//        binary = false;
+//        hasPadByteOveride = padByteOveride;
+//        this.trim = false;
     }
 
 
@@ -73,21 +100,25 @@ public class TypeChar implements Type {
      * @param binaryField wether this is a binary field
      */
     public TypeChar(final boolean leftJustified, final boolean binaryField, final boolean num) {
+    	this(leftJustified, false, binaryField, num, true);
+    }
+    
+    public TypeChar(final boolean leftJustified, boolean padByteOveride, final boolean binaryField, final boolean num, boolean trim) {
         super();
 
         leftJust = leftJustified;
         binary   = binaryField;
         numeric  = num;
-        hasPadByteOveride = false;
+        hasPadByteOveride = padByteOveride;
+        this.trim = trim;
     }
 
 
     /**
-     * @see net.sf.JRecord.Types.Type#formatValueForRecord
+     * @see net.sf.JRecord.Types.Type#formatValueForRecord(IFieldDetail, String)
      * (record.layout.DetailField, java.lang.String)
      */
-    public String formatValueForRecord(IFieldDetail field, String val)
-            throws RecordException {
+    public String formatValueForRecord(IFieldDetail field, String val) {
     	if (val == null) {
     		val = "";
     	} else if (val.length() < field.getLen() && ! leftJust) {
@@ -103,7 +134,7 @@ public class TypeChar implements Type {
 
 
     /**
-     * @see net.sf.JRecord.Types.Type#getField(byte[], int, net.sf.JRecord.Common.FieldDetail)
+     * @see net.sf.JRecord.Types.Type#getField(byte[], int, IFieldDetail)
      */
     public Object getField(final byte[] record,
             			   final int position,
@@ -125,22 +156,34 @@ public class TypeChar implements Type {
 	        					  final int position,
 	        					  final IFieldDetail currField) {
 
-			String s = Conversion.getString(record, position - 1,
-			        getFieldEnd(position, currField, record),
-			        currField.getFontName());
-			String pad = getPadCh();
-			
-			if (pad != null && pad.length() > 0 && s.endsWith(pad)) {
-				int idx = s.length() - 2;
-				char ch = pad.charAt(0); 
-				while(idx >= 0 && s.charAt(idx) == ch) {
-					idx -= 1;
-				}
-				s = s.substring(0, idx+1);
+		if (record == null || isHexZero(record, position, currField.getLen())) {
+			return "";
+		}
+		String s = Conversion.getString(record, position - 1,
+		        getFieldEnd(position, currField, record),
+		        currField.getFontName());
+		String pad = " ";
+		
+		if (trim && s.endsWith(pad)) {
+			int idx = s.length() - 1;
+			char ch = pad.charAt(0); 
+			while(idx >= 0 && s.charAt(idx) == ch) {
+				idx -= 1;
 			}
-			return s;
+			s = s.substring(0, idx+1);
+		}
+		return s;
 	}
 
+	public static boolean isHexZero(byte[] record, int position, int len) {
+		int e = Math.min(record.length, position + len - 1);
+		for (int i = position - 1; i < e; i++) {
+			if (record[i] != 0) {
+				return false;
+			}
+		}
+		return true;
+	}
 	/**
 	 * Get  actual length of the field
 	 *
@@ -153,7 +196,7 @@ public class TypeChar implements Type {
 	        int ret = java.lang.Math.min(position + currField.getLen() - 1, record.length);
 	        String fontName = currField.getFontName();
 	        
-	        if (hasPadByteOveride || Conversion.isSingleByte(fontName)) {
+	        if (trim && (hasPadByteOveride || Conversion.isSingleByte(fontName))) {
 				byte padByte = getPadByte(fontName);
 	
 		        while (ret > 0 && (record[ret - 1] == padByte)) {
@@ -175,13 +218,12 @@ public class TypeChar implements Type {
 
 
     /**
-     * @see net.sf.JRecord.Types.Type#setField(byte[], int, net.sf.JRecord.Common.FieldDetail, java.lang.Object)
+     * @see net.sf.JRecord.Types.Type#setField(byte[], int, IFieldDetail, Object)
      */
     public byte[] setField(byte[] record,
             			 final int position,
             			 final IFieldDetail field,
-            			 Object value)
-            throws RecordException {
+            			 Object value) {
         String val  = value.toString();
 		String font = field.getFontName();
 		int pos = position - 1;
@@ -192,6 +234,7 @@ public class TypeChar implements Type {
 			if (val.length() >= len) {
 				System.arraycopy(byteVal, 0, record, pos, len);
 			} else {
+				//System.out.println("---> " + pos + " " + byteVal.length + " " + record.length + " " + val.length());
 				System.arraycopy(byteVal, 0, record, pos, val.length());
 				//padWith(record, pos + val.length(), len - val.length(), " ", font);
 				padByte(record, pos + val.length(), len - val.length(), getPadByte(font));
@@ -234,9 +277,9 @@ public class TypeChar implements Type {
 		return getBytes(" ", font)[0];
 	}
 	
-	protected final String getPadCh() {
-		return " ";
-	}
+//	private final String getPadCh() {
+//		return " ";
+//	}
 	
 	
 	/**
@@ -266,14 +309,12 @@ public class TypeChar implements Type {
 	 * @param pad pad character
 	 * @param font fontname to use
 	 *
-	 * @throws RecordException can through field to big error
 	 */
 	protected final void copyRightJust(byte[] record,
 	        				   String val,
 	        				   int pos, int len,
 	        				   String pad,
-	        				   String font)
-					throws RecordException {
+	        				   String font) {
 
 	    int l = val.length();
 

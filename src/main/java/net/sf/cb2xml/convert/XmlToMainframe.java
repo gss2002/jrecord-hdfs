@@ -12,6 +12,7 @@ import java.util.Hashtable;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
 
@@ -34,13 +35,32 @@ public class XmlToMainframe {
   private Hashtable keyValuePairs = new Hashtable();
 
   public String convert(Document sourceDocument, Document copyBookXml) {
+    HashtableToMainframe hashtableToMainframe = new HashtableToMainframe();
     Element documentElement = sourceDocument.getDocumentElement();
-    Element element = (Element) documentElement.getFirstChild();
-    String xpath = "/" + documentElement.getTagName() +
-        "/" + element.getTagName();
-    convertNode(element, xpath);
-    //FileUtils.writeFile(keyValuePairs.toString(), "hashtable.txt", false);
-    return new HashtableToMainframe().convert(keyValuePairs, copyBookXml);
+    StringBuilder sb = new StringBuilder();
+    NodeList childNodes = documentElement.getChildNodes();
+    Node elementNode;
+    String xpath;
+    String sep = "";
+    
+    Element element;// = (Element) documentElement.getFirstChild();
+    
+    for (int i = 0; i < childNodes.getLength(); i++) { 
+    	elementNode = childNodes.item(i);
+    	if (elementNode instanceof Element) {
+    		element = (Element) elementNode;
+		    xpath = "/" + documentElement.getTagName() +
+		        "/" + element.getTagName();
+		    
+		    keyValuePairs.clear();
+		    convertNode(element, xpath);
+		    
+		    //FileUtils.writeFile(keyValuePairs.toString(), "hashtable.txt", false);
+			sb.append(sep).append(hashtableToMainframe.convert(keyValuePairs, copyBookXml));
+			sep = "\n";
+    	}
+    }
+    return sb.toString();
   }
 
   private void convertNode(Element element, String xpath) {

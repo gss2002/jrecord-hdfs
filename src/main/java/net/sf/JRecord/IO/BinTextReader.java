@@ -1,12 +1,40 @@
+/*  -------------------------------------------------------------------------
+ *
+ *                Project: JRecord
+ *    
+ *    Sub-Project purpose: Provide support for reading Cobol-Data files 
+ *                        using a Cobol Copybook in Java.
+ *                         Support for reading Fixed Width / Binary / Csv files
+ *                        using a Xml schema.
+ *                         General Fixed Width / Csv file processing in Java.
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+
 package net.sf.JRecord.IO;
 
 import java.io.IOException;
 import java.io.InputStream;
 
 import net.sf.JRecord.ByteIO.ByteTextReader;
+import net.sf.JRecord.ByteIO.IByteReader;
 import net.sf.JRecord.Common.Constants;
 import net.sf.JRecord.Common.FieldDetail;
-import net.sf.JRecord.Common.RecordException;
 import net.sf.JRecord.CsvParser.BinaryCsvParser;
 import net.sf.JRecord.Details.LayoutDetail;
 import net.sf.JRecord.Details.LineProvider;
@@ -33,7 +61,11 @@ public class BinTextReader extends LineReaderWrapper {
 	private boolean readNames;
 	
 	public BinTextReader(LineProvider provider, boolean nameOn1stLine) {
-		super(provider, new ByteTextReader());
+		this(provider, nameOn1stLine, new ByteTextReader());
+	}
+
+	public BinTextReader(LineProvider provider, boolean nameOn1stLine, IByteReader reader) {
+		super(provider, reader);
 
 		readNames = nameOn1stLine;
 	}
@@ -42,7 +74,7 @@ public class BinTextReader extends LineReaderWrapper {
      * @see net.sf.JRecord.IO.AbstractLineReader#open(java.io.InputStream, net.sf.JRecord.Details.LayoutDetail)
      */
     public void open(InputStream inputStream, LayoutDetail layout)
-    throws IOException, RecordException {
+    throws IOException {
 
         super.open(inputStream, layout);
 
@@ -59,7 +91,7 @@ public class BinTextReader extends LineReaderWrapper {
      *
      * @throws IOException sny IO error that occurs
      */
-    protected void createLayout(byte[] line) throws IOException, RecordException {
+    protected void createLayout(byte[] line) throws IOException {
         LayoutDetail layout;
 	    
         RecordDetail rec = null;
@@ -74,6 +106,7 @@ public class BinTextReader extends LineReaderWrapper {
         String quote  = defaultQuote;
         String font   = "";
         byte[] recordSep = Constants.SYSTEM_EOL_BYTES;
+        boolean embeddedCr = false;
 
 	    try {
 	    	int ts = getLayout().getFileStructure();
@@ -91,6 +124,10 @@ public class BinTextReader extends LineReaderWrapper {
 	        param     = rec.getField(0).getParamater();
 	        recordSep = getLayout().getRecordSep();
 	        font      = getLayout().getFontName();
+
+	        if (rec instanceof RecordDetail) {
+	        	embeddedCr = ((RecordDetail) rec).isEmbeddedNewLine();
+	        }
 	    } catch (Exception e) {
         }
 	    
@@ -99,7 +136,7 @@ public class BinTextReader extends LineReaderWrapper {
 	    layout = createLayout(line, rec, 
 	    		recordSep, font,  delim, delimStr,
                 parser, fieldType, decimal, format, 
-                param, quote, structure);
+                param, quote, structure, embeddedCr);
 	    //System.out.println(" Quote  ->");
 
 	    if (layout != null) {
@@ -120,7 +157,8 @@ public class BinTextReader extends LineReaderWrapper {
      * @param format format to use
      * @param param param to add to each field
      * @param quote Quote
-     * @param Structure file structure
+     * @param structure file structure
+     * @param embeddedCr wether there is embedded Cr in the file
      * @return Create a Layout description form a supplied line (first line of a file ?)
      * + other details
      * @throws IOException any error
@@ -129,7 +167,7 @@ public class BinTextReader extends LineReaderWrapper {
     		byte[] recordSep,
             String fontName, byte[] delimiter, String delimStr, int parser,
             int fieldType, int decimal, int format, String param,
-            String quote, int structure) throws IOException {
+            String quote, int structure, boolean embeddedCr) throws IOException {
 
     	int fldType, idx;
         int i;
@@ -161,8 +199,10 @@ public class BinTextReader extends LineReaderWrapper {
                 flds[i].setPosOnly(i + 1);
             }
 
-            recs[0] = new RecordDetail("", "", "", Constants.rtDelimited,
-            		delimStr, quote, fontName, flds, parser);
+            recs[0] =  new RecordDetail("", Constants.rtDelimited, delimStr, quote, fontName, flds, parser, null, embeddedCr);
+            		
+            	//	new RecordDetail("", "", "", Constants.rtDelimited,
+            	//	delimStr, quote, fontName, flds, parser);
 
             try {
                 ret =

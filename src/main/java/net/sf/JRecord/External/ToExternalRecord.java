@@ -1,8 +1,35 @@
+/*  -------------------------------------------------------------------------
+ *
+ *                Project: JRecord
+ *    
+ *    Sub-Project purpose: Provide support for reading Cobol-Data files 
+ *                        using a Cobol Copybook in Java.
+ *                         Support for reading Fixed Width / Binary / Csv files
+ *                        using a Xml schema.
+ *                         General Fixed Width / Csv file processing in Java.
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+
 package net.sf.JRecord.External;
 
 import net.sf.JRecord.Common.Constants;
 import net.sf.JRecord.Common.FieldDetail;
-import net.sf.JRecord.Common.RecordException;
 import net.sf.JRecord.Details.LayoutDetail;
 import net.sf.JRecord.Details.RecordDetail;
 import net.sf.JRecord.External.Def.ExternalField;
@@ -23,10 +50,8 @@ public final class ToExternalRecord {
 	 * @param copybookName
 	 * @param system
 	 * @return layout in ExternalRecord format
-	 * @throws RecordException
 	 */
-	public final ExternalRecord getExternalRecord(LayoutDetail layout, String copybookName, int system)
-	throws  RecordException {
+	public final ExternalRecord getExternalRecord(LayoutDetail layout, String copybookName, int system) {
 		//int rt = Constants.rtGroupOfRecords;
 		//int type = recordDefinition.getLayoutType();
 
@@ -74,10 +99,14 @@ public final class ToExternalRecord {
 		RecordDetail record = layout.getRecord(id);
 		String name = record.getRecordName();
 		boolean embeddedCr = false;
+		if (record instanceof RecordDetail) {
+			embeddedCr =((RecordDetail) record).isEmbeddedNewLine();
+		}
+
 
 		rec = new ExternalRecord(
 				id, name, "", record.getRecordType(),
-				system, "N", copybookName + "_" + name, getSeperator(record.getDelimiter()),
+				system, "N", copybookName + "_" + name, getSeperator(record.getDelimiterUneditted()),
 				record.getQuote(), 0, "default", layout.getRecordSep(), record.getFontName(),
 				record.getRecordStyle(), fixIOType(layout.getFileStructure()), embeddedCr
 		);

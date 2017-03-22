@@ -1,8 +1,34 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Numeric;
 
 import net.sf.JRecord.Common.Constants;
 import net.sf.JRecord.Types.Type;
 import net.sf.cb2xml.def.BasicNumericDefinition;
+import net.sf.cb2xml.def.Cb2xmlConstants;
 import net.sf.cb2xml.def.NumericDefinition;
 
 /**
@@ -12,12 +38,12 @@ import net.sf.cb2xml.def.NumericDefinition;
  *
  * BasicNumericDefinition("Mainframe", BasicNumericDefinition.MAINFRAME_SIZES, BasicNumericDefinition.MAINFRAME_SYNC, false, 4, 4)
  * BasicNumericDefinition("Fujitsu", BasicNumericDefinition.FUJITSU_SIZES, BasicNumericDefinition.FUJITSU_SYNC, true, 4, 8)
- * BasicNumericDefinition("Open Cobol", BasicNumericDefinition.OPEN_COBOL_SIZES, BasicNumericDefinition.OPEN_COBOL_SYNC, true, 4, 8)
- * BasicNumericDefinition("Open Cobol bs2000", BasicNumericDefinition.BS2000_SIZES, BasicNumericDefinition.BS2000_SYNC, true, 4, 8)
- * BasicNumericDefinition("Open Cobol MVS", BasicNumericDefinition.OPEN_COBOL_MVS_SIZES,
- *                                    BasicNumericDefinition.OPEN_COBOL_MVS_SYNC, true, 4, 8)
- * BasicNumericDefinition("Open Cobol Micro Focus", BasicNumericDefinition.MICROFOCUS_SIZES,
- *                                     BasicNumericDefinition.MICROFOCUS_SIZES_SYNC, , true, 1, 1)
+ * BasicNumericDefinition("GNU Cobol", BasicNumericDefinition.OPEN_COBOL_SIZES, BasicNumericDefinition.OPEN_COBOL_SYNC, true, 4, 8)
+ * BasicNumericDefinition("GNU Cobol bs2000", BasicNumericDefinition.BS2000_SIZES, BasicNumericDefinition.BS2000_SYNC, true, 4, 8)
+ * BasicNumericDefinition("GNU Cobol MVS", BasicNumericDefinition.OPEN_COBOL_MVS_SIZES,
+ *                                   BasicNumericDefinition.OPEN_COBOL_MVS_SYNC, true, 4, 8)
+ * BasicNumericDefinition("GNU Cobol Micro Focus", BasicNumericDefinition.MICROFOCUS_SIZES,
+ *                                   BasicNumericDefinition.MICROFOCUS_SIZES_SYNC, , true, 1, 1)
  *
  *
  * @author bm
@@ -287,7 +313,7 @@ public class GenericNumericDefinition implements NumericDefinition, Convert {
                ||  picture.indexOf('.') >= 0) {
         	ret = Type.ftNumRightJustified;
         } else {
-        	ret = CommonCode.commonTypeChecks(binId, usage, picture, signed, signSeperate, signPosition);
+        	ret = CommonCode.commonTypeChecks(identifier, usage, picture, signed, signSeperate, signPosition);
         }
 
 		return ret;
@@ -309,25 +335,25 @@ public class GenericNumericDefinition implements NumericDefinition, Convert {
 
 	protected final int getBinCode(String usage) {
 		int ret = PIC9;
-		if ("computational".equals(usage)) {
+		if (Cb2xmlConstants.COMP.equalsIgnoreCase(usage)) {
 			ret = COMP_0;
-		} else if ("computational-1".equals(usage)) {
+		} else if (Cb2xmlConstants.COMP_1.equalsIgnoreCase(usage)) {
 			ret = COMP_1;
-		} else if ("computational-2".equals(usage)) {
+		} else if (Cb2xmlConstants.COMP_2.equalsIgnoreCase(usage)) {
 			ret = COMP_2;
-		} else if ("computational-3".equals(usage)) {
+		} else if (Cb2xmlConstants.COMP_3.equalsIgnoreCase(usage) || Cb2xmlConstants.PACKED_DECIMAL.equalsIgnoreCase(usage)) {
 			ret = COMP_3;
-		} else if ("computational-4".equals(usage)) {
+		} else if (Cb2xmlConstants.COMP_4.equalsIgnoreCase(usage)) {
 			ret = COMP_4;
-		} else if ("computational-5".equals(usage)) {
+		} else if (Cb2xmlConstants.COMP_5.equalsIgnoreCase(usage)) {
 			ret = COMP_5;
-		} else if ("computational-6".equals(usage)) {
+		} else if (Cb2xmlConstants.COMP_6.equalsIgnoreCase(usage)) {
 			ret = COMP_6;
-		} else if ("computational-7".equals(usage)) {
+		} else if ("computational-7".equalsIgnoreCase(usage)) {
 			ret = COMP_7;
-		} else if ("computational-8".equals(usage)) {
+		} else if ("computational-8".equalsIgnoreCase(usage)) {
 			ret = COMP_8;
-		} else if ("binary".equals(usage)) {
+		} else if (Cb2xmlConstants.BINARY.equalsIgnoreCase(usage)) {
 			ret = BINARY;
 		}
 

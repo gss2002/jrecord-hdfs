@@ -4,11 +4,41 @@
  *
  * Purpose:
  */
+/*  -------------------------------------------------------------------------
+ *
+ *                Project: JRecord
+ *    
+ *    Sub-Project purpose: Provide support for reading Cobol-Data files 
+ *                        using a Cobol Copybook in Java.
+ *                         Support for reading Fixed Width / Binary / Csv files
+ *                        using a Xml schema.
+ *                         General Fixed Width / Csv file processing in Java.
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+
 package net.sf.JRecord.IO;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Reader;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
@@ -65,30 +95,19 @@ public class XmlLineReader extends AbstractLineReader {
     public void open(InputStream inputStream, LayoutDetail pLayout)
             throws IOException {
 
-    	XMLInputFactory f;
+    	XMLInputFactory f = XMLInputFactory.newInstance();
     	BufferedInputStream iStream = new BufferedInputStream(inputStream);
     	boolean startDocumentPresent;
     	
 
 //    	try {
-    		f = XMLInputFactory.newInstance();
+//    		f = XMLInputFactory.newInstance();
 //    	} catch (Exception e) {
 //    		e.printStackTrace();
 //    		f = XMLInputFactory.newInstance("javax.xml.stream.XMLInputFactory", this.getClass().getClassLoader());
 //		}
 
-        if (buildLayout || pLayout == null) {
-            try {
-            pLayout = new LayoutDetail("XML Document", new RecordDetail[] {null, null, null, null, null},
-                    			"", Constants.RT_XML, null, null, "", null, Constants.IO_XML_BUILD_LAYOUT
-                      );
-            } catch (Exception e) {
-                e.printStackTrace();
-                throw new IOException("Error Creating Layout:" + e.getMessage());
-            }
-        }
-
-        setLayout(pLayout);
+        initLayout(pLayout);
         
         startDocumentPresent = open_CheckStartDocument(iStream);
 
@@ -99,28 +118,55 @@ public class XmlLineReader extends AbstractLineReader {
             throw new IOException(e.getMessage());
         }
 
-        type = parser.getEventType();
+        openGetFirstRecord(startDocumentPresent);
+    }
+
+    /**
+     * @see net.sf.JRecord.IO.AbstractLineReader#open(java.io.InputStream, net.sf.JRecord.Details.LayoutDetail)
+     */
+    public void open(Reader reader, LayoutDetail pLayout)
+            throws IOException {
+
+    	XMLInputFactory f = XMLInputFactory.newInstance();
+    	BufferedReader bufReader = new BufferedReader(reader);
+    	boolean startDocumentPresent;
+    	
+
+        initLayout(pLayout);
+        
+        startDocumentPresent = open_CheckStartDocument(bufReader);
+
+        try {
+            parser = f.createXMLStreamReader(bufReader);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new IOException(e.getMessage());
+        }
+
+        openGetFirstRecord(startDocumentPresent);
+    }
+
+	private void openGetFirstRecord(boolean startDocumentPresent) throws IOException {
+		type = parser.getEventType();
         if (type == XMLStreamConstants.START_DOCUMENT && ! startDocumentPresent) {
         	g_350_Next();
-        	//type = parser.getEventType();
         }
-//        if (type == XMLStreamConstants.START_DOCUMENT) {
-//        	boolean generatedTag = true;
-//        	
-//        	parser.
-//        	System.out.println("Tag Attributes:");
-//        	for (int i = 0; i < parser.getAttributeCount(); i++) {
-//        		if (parser.isAttributeSpecified(i)) {
-//        			generatedTag = false;
-//        		}
-//        		System.out.println("   " + parser.getAttributeLocalName(i) + "  " + parser.isAttributeSpecified(i));
-//        	}
-//        	
-//        	if (generatedTag) {
-//        		type = parser.getEventType();
-//        	}
-//        }
-    }
+	}
+
+	private void initLayout(LayoutDetail pLayout) throws IOException {
+		if (buildLayout || pLayout == null) {
+            try {
+            	pLayout = new LayoutDetail("XML Document", new RecordDetail[] {null, null, null, null, null},
+                    			"", Constants.RT_XML, null, null, "", null, Constants.IO_XML_BUILD_LAYOUT
+                      );
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw new IOException("Error Creating Layout:" + e.getMessage());
+            }
+        }
+
+        setLayout(pLayout);
+	}
     
     private boolean open_CheckStartDocument(BufferedInputStream iStream) throws IOException {
     	StringBuffer sb = new StringBuffer();
@@ -140,11 +186,31 @@ public class XmlLineReader extends AbstractLineReader {
     	iStream.reset();
     	return sb.indexOf("<?xml") >= 0;
     }
+    
+    
+    private boolean open_CheckStartDocument(BufferedReader iStream) throws IOException {
+    	StringBuffer sb = new StringBuffer();
+    	char[] chars = new char[100];
+    	int p = 0;
+    	
+    	iStream.mark(SEARCH_LIMIT);
+
+    	do  {
+    		iStream.read(chars);
+    		sb.append(new String(chars));
+    		p = sb.indexOf("<");
+    	} while ((sb.length() <= (SEARCH_LIMIT - chars.length)) 
+    		 && (p < 0 || p > sb.length() - 5));
+    	
+    	iStream.reset();
+    	return sb.indexOf("<?xml") >= 0;
+    }
+
 
     /**
      * @see net.sf.JRecord.IO.AbstractLineReader#read()
      */
-    public AbstractLine read() throws IOException {
+    public AbstractLine readImplementation() throws IOException {
 
         XmlLine ret = null;
         do {
@@ -402,10 +468,10 @@ public class XmlLineReader extends AbstractLineReader {
      * @see net.sf.JRecord.IO.AbstractLineReader#close()
      */
     public void close() throws IOException {
-        for (int i = 0; i < getLayout().getRecordCount(); i++) {
-            //System.out.println("^^ " + i + " " + getLayout().getRecord(i).getRecordName()
-            //        + " " + getLayout().getRecord(i).getFieldCount());
-        }
+//        for (int i = 0; i < getLayout().getRecordCount(); i++) {
+//            //System.out.println("^^ " + i + " " + getLayout().getRecord(i).getRecordName()
+//            //        + " " + getLayout().getRecord(i).getFieldCount());
+//        }
         try {
             parser.close();
         } catch (Exception e) {

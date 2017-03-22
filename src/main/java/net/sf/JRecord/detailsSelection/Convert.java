@@ -1,18 +1,45 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.detailsSelection;
 
-import net.sf.JRecord.Common.AbstractRecordX;
-import net.sf.JRecord.Common.IFieldDetail;
+import net.sf.JRecord.Common.IGetFieldByName;
 import net.sf.JRecord.ExternalRecordSelection.ExternalFieldSelection;
 import net.sf.JRecord.ExternalRecordSelection.ExternalGroupSelection;
 import net.sf.JRecord.ExternalRecordSelection.ExternalSelection;
 
 public class Convert {
 //	private int lvl = 0;
-	public RecordSel convert(ExternalSelection sel, AbstractRecordX<? extends IFieldDetail> recDef) {
+	public RecordSel convert(ExternalSelection sel, IGetFieldByName recDef) {
 //		lvl = 0;
 		return convertI(sel, recDef);
 	}
-	private RecordSel convertI(ExternalSelection sel, AbstractRecordX<? extends IFieldDetail> recDef) {
+	
+	
+	@SuppressWarnings("unchecked")
+	private RecordSel convertI(ExternalSelection sel, /*AbstractRecordX<? extends IFieldDetail>*/ IGetFieldByName recDef) {
 		RecordSel ret=null;
 		ExternalGroupSelection<ExternalSelection> g;
 
@@ -30,14 +57,14 @@ public class Convert {
 		case ExternalSelection.TYPE_AND:
 			g = (ExternalGroupSelection<ExternalSelection>) sel;
 //			System.out.println(" And");
-			AndSelection and = new AndSelection(g);
+			AndSelection and = new AndSelection(g.size());
 			copy(g, and, recDef);
 			ret = and;
 			break;
 		case ExternalSelection.TYPE_OR:
 			g = (ExternalGroupSelection<ExternalSelection>) sel;
 //			System.out.println(" Or");
-			OrSelection or = new OrSelection(g);
+			OrSelection or = new OrSelection(g.size());
 			ret = copy(g, or, recDef);
 			break;
 		}
@@ -46,7 +73,7 @@ public class Convert {
 		return ret;
 	}
 
-	private RecordSel copy(ExternalGroupSelection<ExternalSelection> g, ExternalGroupSelection<RecordSel> to, AbstractRecordX<? extends IFieldDetail> r) {
+	private RecordSel copy(ExternalGroupSelection<ExternalSelection> g, ExternalGroupSelection<RecordSel> to, IGetFieldByName r) {
 		for (int i = 0; i < g.size(); i++) {
 			to.add(convertI(g.get(i), r));
 		}

@@ -4,6 +4,34 @@
  *
  * Purpose:  reading Record Orientated files
  */
+/*  -------------------------------------------------------------------------
+ *
+ *                Project: JRecord
+ *    
+ *    Sub-Project purpose: Provide support for reading Cobol-Data files 
+ *                        using a Cobol Copybook in Java.
+ *                         Support for reading Fixed Width / Binary / Csv files
+ *                        using a Xml schema.
+ *                         General Fixed Width / Csv file processing in Java.
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+
 package net.sf.JRecord.IO;
 
 import java.io.FileInputStream;
@@ -14,11 +42,11 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import net.sf.JRecord.Common.RecordException;
 import net.sf.JRecord.Details.AbstractLine;
 import net.sf.JRecord.Details.DefaultLineProvider;
 import net.sf.JRecord.Details.LayoutDetail;
 import net.sf.JRecord.Details.LineProvider;
+import net.sf.JRecord.Details.SpecialRecordIds;
 import net.sf.JRecord.External.ExternalRecord;
 
 
@@ -27,24 +55,36 @@ import net.sf.JRecord.External.ExternalRecord;
  * This abstract class is the base class for all <b>Line~Reader</b>
  * classes. A LineReader reads a file as a series of AbstractLines.
  *
- * <pre>
- * <b>Usage:</b>
+ *<pre>
+ *<b>Example:</b>
  * 
- *         CopybookLoader loader = <font color="brown"><b>new</b></font> RecordEditorXmlLoader();
- *         LayoutDetail layout = loader.loadCopyBook(copybookName, 0, 0, "", 0, 0, <font color="brown"><b>null</b></font>).asLayoutDetail();
- *        
- *         <b>AbstractLineReader</b> reader = LineIOProvider.getInstance().getLineReader(layout.getFileStructure());
- * </pre>
+ *      {@code
+ *      AbstractLineReader reader = JRecordInterface1.COBOL
+ *              .newIOBuilder("file-name")
+ *                  .setFileOrganization(Constants.IO_FIXED_LENGTH)
+ *                  .setDialect(ICopybookDialects.FMT_FUJITSU)
+ *              .newReader("Data-Filename");
+ *              
+ *      while ((l = reader.read()) != null) { ... }
+ *      reader.closer()
+ *      
+ * }</pre> 
  * 
  * @author Bruce Martin
  *
  */
-public abstract class AbstractLineReader {
+public abstract class AbstractLineReader implements IReadLine {
 
     public static final String NOT_OPEN_MESSAGE = "File has not been opened";
+    
+    private static final int RT_FIRST_RECORD = 1;
+    private static final int RT_MIDDLE_RECORD = 2;
+    private static final int RT_LAST_RECORD = 3;
+    private static final int RT_FINISHED = 4;
 
 	private LineProvider lineProvider;
 	private LayoutDetail layout = null;
+	private IReadLine filter = null;
 
 
 	/**
@@ -77,20 +117,39 @@ public abstract class AbstractLineReader {
 	 * - CSV files where the field names are stored on the first line
 	 * @param fileName file to be opened.
 	 */
-	 public void open(String fileName) throws IOException, RecordException {
+	 public void open(String fileName) throws IOException {
 		 open(fileName, (LayoutDetail) null);
 	 }
-
-	/**
-	 * Open a file where the layout can be built from the file contents.
-	 * Possible files are:
-	 * - XML files
-	 * - CSV files where the field names are stored on the first line
-	 * @param fileName file to be opened.
-	 */
-	 public void open(Path fileName, Configuration conf) throws IOException, RecordException {
-		 open(fileName, (LayoutDetail) null, conf);
-	 }
+	 
+	 	/**
+	 	 * Open a file where the layout can be built from the file contents.
+	 	 * Possible files are:
+	 	 * - XML files
+	 	 * - CSV files where the field names are stored on the first line
+	 	 * @param fileName file to be opened.
+	 	 */
+	 	 public void open(Path fileName, Configuration conf) throws IOException {
+	 		 open(fileName, (LayoutDetail) null, conf);
+	 	 }
+	     /**
+	      * Open file for input
+	      *
+	      * @param fileName filename to be opened
+	      * @param pLayout record layout
+	      *
+	      * @throws IOException any IOerror
+	      */
+	     public void open(Path fileName, LayoutDetail pLayout, Configuration conf) throws IOException {
+	 		FileSystem fs = fileName.getFileSystem(conf);
+	 
+	         open(fs.open(fileName), pLayout);
+	 
+	         if (layout == null) {
+	             layout = pLayout;
+	         }
+	     }
+	     
+	     
 	 
     /**
      * Open file for input
@@ -100,32 +159,14 @@ public abstract class AbstractLineReader {
      *
      * @throws IOException any IOerror
      */
-    public void open(Path fileName, LayoutDetail pLayout, Configuration conf) throws IOException, RecordException {
-		FileSystem fs = fileName.getFileSystem(conf);
-
-        open(fs.open(fileName), pLayout);
-
-        if (layout == null) {
-            layout = pLayout;
-        }
-    }
-    
-    
-    /**
-     * Open file for input
-     *
-     * @param fileName filename to be opened
-     * @param pLayout record layout
-     *
-     * @throws IOException any IOerror
-     */
-    public void open(String fileName, LayoutDetail pLayout) throws IOException, RecordException {
+    public void open(String fileName, LayoutDetail pLayout) throws IOException {
         open(new FileInputStream(fileName), pLayout);
 
         if (layout == null) {
-            layout = pLayout;
+            setLayout(pLayout);
         }
     }
+    
 
     
     /**
@@ -133,15 +174,14 @@ public abstract class AbstractLineReader {
      * @param inputStream input
      * @param recordLayout recordlayout to use
      * @throws IOException any IOError that occurs
-     * @throws RecordException any other error
      */
     public void open(InputStream inputStream, ExternalRecord recordLayout) 
-    throws IOException, RecordException {
+    throws IOException {
     	LayoutDetail pLayout = recordLayout.asLayoutDetail();
     	open(inputStream, pLayout);
 
         if (layout == null) {
-            layout = pLayout;
+        	setLayout(pLayout);
         }
     }
 
@@ -155,7 +195,7 @@ public abstract class AbstractLineReader {
      * @throws IOException any IOerror
      */
     public abstract void open(InputStream inputStream, LayoutDetail pLayout)
-    throws IOException, RecordException;
+    throws IOException;
 
 
 
@@ -166,8 +206,21 @@ public abstract class AbstractLineReader {
      *
      * @throws IOException io error
      */
-    public abstract AbstractLine read() throws IOException;
+    public final AbstractLine read() throws IOException {
+    	if (filter == null) {
+    		return readImplementation();
+    	}
+    	return filter.read();
+    }
 
+    /**
+     * Read one line from the input file
+     *
+     * @return line read in
+     *
+     * @throws IOException io error
+     */
+    public abstract AbstractLine readImplementation() throws IOException;
 
     /**
      * Closes the file
@@ -212,6 +265,7 @@ public abstract class AbstractLineReader {
 	 *
 	 * @return line just created
 	 */
+	@SuppressWarnings("deprecation")
 	protected final AbstractLine getLine(byte[] record) {
 	    AbstractLine ret = lineProvider.getLine(layout, record);
 
@@ -227,6 +281,7 @@ public abstract class AbstractLineReader {
 	 *
 	 * @return line just created
 	 */
+	@SuppressWarnings("deprecation")
 	protected final AbstractLine getLine(String record) {
 	    AbstractLine ret = lineProvider.getLine(layout, record);
 
@@ -250,5 +305,81 @@ public abstract class AbstractLineReader {
 	 */
     public final void setLayout(LayoutDetail pLayout) {
         this.layout = pLayout;
+        
+        filter = null;
+        if (layout != null && layout.hasHeaderTrailerRecords()) {
+        	filter = new HeaderTrailerDelagate(this, layout);
+        }
     }
+
+
+	/**
+	 * @return the lineProvider
+	 */
+	public final LineProvider getLineProvider() {
+		return lineProvider;
+	}
+	
+	private static class HeaderTrailerDelagate implements IReadLine {
+		private final AbstractLineReader parent;
+		private int recordId = RT_FIRST_RECORD;
+		private int firstRecordId = -1,
+				    middleRecordId = -1,
+				    lastRecordId = -1;
+		private AbstractLine next = null;
+
+		
+
+		protected HeaderTrailerDelagate(AbstractLineReader parent, LayoutDetail l) {
+			super();
+			this.parent = parent;
+			SpecialRecordIds sr = l.getPositionRecordId();
+			firstRecordId = sr.headerId;
+			middleRecordId = sr.middleId;
+			lastRecordId = sr.trailerId;
+		}
+
+
+
+		/* (non-Javadoc)
+		 * @see net.sf.JRecord.IO.IReadLine#read()
+		 */
+		@Override
+		public AbstractLine read() throws IOException {
+			AbstractLine ret = next;
+			int id = -1;
+			switch (recordId) {
+			case RT_FINISHED:
+			case RT_FIRST_RECORD:
+				ret = parent.readImplementation();
+				if (ret == null) {
+					return null;
+				}
+				id = firstRecordId;
+
+				recordId = RT_MIDDLE_RECORD;
+				next = parent.readImplementation();
+				if (next == null) {
+					recordId = RT_LAST_RECORD;
+				}
+				break;
+			case RT_MIDDLE_RECORD:
+				id = middleRecordId; 
+				next = parent.readImplementation();
+				if (next == null) {
+					recordId = RT_LAST_RECORD;
+					id = lastRecordId;
+				}
+				break;
+			case RT_LAST_RECORD:
+				recordId = RT_FINISHED;
+				return null;
+			}
+			if (id >= 0) {
+				ret.setWriteLayout(id);
+			}
+			return ret;
+		}
+
+	}
 }

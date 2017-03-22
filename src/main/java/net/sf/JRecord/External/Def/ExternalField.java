@@ -1,3 +1,28 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.External.Def;
 
 
@@ -22,6 +47,7 @@ public class ExternalField extends AbstractUpdatableRecord {
   private String defaultValue;
   private String cobolName;
   private int subKey;
+  private final DependingOnDtls dependOnDtls;
 
   private String group = "";
 
@@ -45,6 +71,7 @@ public class ExternalField extends AbstractUpdatableRecord {
       defaultValue = "";
       cobolName = "";
       subKey = 0;
+      dependOnDtls = null;
   }
 
 
@@ -77,6 +104,25 @@ public class ExternalField extends AbstractUpdatableRecord {
                   , final String pCobolName
                   , final  int pSubKey
                   ) {
+	  this(pPos, pLen, pName, pDescription, pType, pDecimal, pCellFormat, pParameter, pDefault, pCobolName, pSubKey, null);
+  }
+  
+  public ExternalField (
+          final int pPos
+        , final int pLen
+        , final String pName
+        , final String pDescription
+        , final int pType
+        , final int pDecimal
+        , final int pCellFormat
+        , final String pParameter
+        , final String pDefault
+        , final String pCobolName
+        , final  int pSubKey
+        , final DependingOnDtls dependDtls
+        ) {
+
+
       super(false);
 
       position = pPos;
@@ -90,6 +136,7 @@ public class ExternalField extends AbstractUpdatableRecord {
       defaultValue = pDefault;
       cobolName = pCobolName;
       subKey = pSubKey;
+      dependOnDtls = dependDtls;
   }
 
 
@@ -397,6 +444,16 @@ public class ExternalField extends AbstractUpdatableRecord {
  */
 public final String getGroup() {
 	return group;
+}
+
+
+
+
+/**
+ * @return the dependOnDtls
+ */
+public final DependingOnDtls getDependOnDtls() {
+	return dependOnDtls;
 }
 
 

@@ -1,14 +1,35 @@
+/*  -------------------------------------------------------------------------
+ *
+ *                Project: JRecord
+ *    
+ *    Sub-Project purpose: Provide support for reading Cobol-Data files 
+ *                        using a Cobol Copybook in Java.
+ *                         Support for reading Fixed Width / Binary / Csv files
+ *                        using a Xml schema.
+ *                         General Fixed Width / Csv file processing in Java.
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+
 package net.sf.JRecord.Details;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-
-import net.sf.JRecord.Common.AbstractFieldValue;
 import net.sf.JRecord.Common.IFieldDetail;
-import net.sf.JRecord.Common.RecordException;
-import net.sf.JRecord.External.ExternalConversion;
 import net.sf.JRecord.Types.Type;
-import net.sf.JRecord.Types.TypeManager;
 
 /**
  * Reference to one field in a line (or Record).
@@ -28,12 +49,12 @@ import net.sf.JRecord.Types.TypeManager;
  * @author Bruce Martin
  *
  */
-public final class FieldValue implements AbstractFieldValue {
+public class FieldValue extends BaseFieldValue implements IFieldValue {
 
-	private AbstractLine theLine;
-	private IFieldDetail field;
-	private int recordNum = -1;
-	private int fieldNum;;
+	private final AbstractLine theLine;
+	//final IFieldDetail field;
+	final int recordNum;
+	final int fieldNum;;
 
 	/**
 	 * Create a field value
@@ -42,9 +63,10 @@ public final class FieldValue implements AbstractFieldValue {
 	 * @param fieldDetails Field Description
 	 */
 	public FieldValue(AbstractLine line, IFieldDetail fieldDetails) {
+		super(fieldDetails);
 		theLine = line;
-		field = fieldDetails;
 		recordNum = -1;
+		fieldNum = -1;
 	}
 
 	/**
@@ -55,144 +77,18 @@ public final class FieldValue implements AbstractFieldValue {
 	 * @param fieldIndex field index of the field
 	 */
 	public FieldValue(AbstractLine line, int recordIndex, int fieldIndex) {
+		super(null);
 		theLine = line;
 		recordNum = recordIndex;
 		fieldNum = fieldIndex;
 	}
 
 	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#asBigDecimal()
-	 */
-	@Override
-	public BigDecimal asBigDecimal() {
-		Object ret = getValue();
-
-		if (ret == null) {
-			return null;
-		} else if (ret instanceof BigDecimal) {
-			return (BigDecimal) ret;
-		} else {
-			return new BigDecimal(ret.toString());
-		}
-	}
-
-	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#asBigInteger()
-	 */
-	@Override
-	public BigInteger asBigInteger() {
-		Object ret = getValue();
-
-		if (ret == null) {
-			return null;
-		} else if (ret instanceof BigInteger) {
-			return (BigInteger) ret;
-		} else {
-			return new BigInteger(ret.toString());
-		}
-	}
-
-	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#asDouble()
-	 */
-	@Override
-	public double asDouble() {
-		Object ret = getValue();
-
-		if (ret == null) {
-			return 0;
-		} else if (ret instanceof Number) {
-			return ((Number) ret).doubleValue();
-		} else {
-			return Double.parseDouble(ret.toString());
-		}
-	}
-
-
-	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#asFloat()
-	 */
-	@Override
-	public float asFloat() {
-		Object ret = getValue();
-
-		if (ret == null) {
-			return 0;
-		} else if (ret instanceof Number) {
-			return ((Number) ret).floatValue();
-		} else {
-			return Float.parseFloat(ret.toString());
-		}
-	}
-
-	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#asLong()
-	 */
-	@Override
-	public long asLong() {
-		Object ret = getValue();
-
-		if (ret == null) {
-			return 0;
-		} else if (ret instanceof Number) {
-			return ((Number) ret).longValue();
-		} else {
-			return Long.parseLong(ret.toString());
-		}
-	}
-
-
-	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#asInt()
-	 */
-	@Override
-	public int asInt() {
-		return (int) asLong();
-	}
-
-
-
-	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#asBoolean()
-	 */
-	@Override
-	public boolean asBoolean() {
-		Object ret = getValue();
-
-		if (ret == null) {
-			return false;
-		} else if (ret instanceof Boolean) {
-			return ((Boolean) ret).booleanValue();
-		} else {
-			return Boolean.parseBoolean(ret.toString());
-		}
-	}
-
-
-	/**
-	 * @see java.lang.Object#toString()
-	 */
-	@Override
-	public String toString() {
-		return asString();
-	}
-
-
-	@Override
-	public String asString() {
-		Object ret = getValue();
-
-		if (ret == null) {
-			return "";
-		}
-		return ret.toString();
-	}
-
-	/**
 	 * Get The fields value
 	 * @return fields value
 	 */
-	private Object getValue() {
+	@SuppressWarnings("deprecation")
+	protected Object getValue() {
 		if (recordNum >= 0) {
 			return theLine.getField(recordNum, fieldNum);
 		}
@@ -201,96 +97,92 @@ public final class FieldValue implements AbstractFieldValue {
 		}
 		return theLine.getField(field);
 	}
+	
+	public boolean isFieldInRecord() {
+		
+		IFieldDetail fld = field;
+		
+		if (recordNum >= 0) {
+			fld = theLine.getLayout().getField(recordNum, fieldNum);
+		}
+		if (fld == null) { return false; }
+		return theLine.isFieldInLine(fld);
+//		IFieldDetail fld = field;
+//		
+//		if (recordNum >= 0) {
+//			fld = theLine.getLayout().getField(recordNum, fieldNum);
+//		}
+//		
+//		boolean ret = fld != null;
+//		DependingOnDtls depOn;
+//		
+//		if (fld != null && fld instanceof FieldDetail) { 
+//			depOn = ((FieldDetail) fld).getDependingOnDtls();
+//			
+//			try {
+//				while (depOn != null) {
+//					if (depOn.index >= theLine.getFieldValue(depOn.dependingOn.getVariableName()).asInt()) {
+//						return false;
+//					}
+//					depOn = depOn.parent;
+//				}
+//			} catch (Exception e) {
+//				ret = false;
+//			}
+//		}
+//		
+//		return ret;
+	}
 
 	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#asHex()
+	 * @see IFieldValue#asHex()
 	 */
+	@SuppressWarnings("deprecation")
 	@Override
 	public String asHex() {
 		IFieldDetail fld = field;
 		if (recordNum >= 0) {
 			fld = theLine.getLayout().getField(recordNum, fieldNum);
 		}
+		if (theLine instanceof BaseLine) {
+			return ((BaseLine) theLine).getField(Type.ftHex, fld).toString();
+		}
 		return theLine.getLayout().getField(theLine.getData(),
 				Type.ftHex,
 				fld).toString();
 	}
 
-	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#set(boolean)
-	 */
-	@Override
-	public void set(boolean value) throws RecordException {
-		set(Boolean.valueOf(value));
-	}
-
+	
 
 	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#set(double)
+	 * @see IFieldValue#set(java.lang.Object)
 	 */
+	@SuppressWarnings("deprecation")
 	@Override
-	public void set(double value) throws RecordException {
-		set(Double.valueOf(value));
-	}
-
-	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#set(float)
-	 */
-	@Override
-	public void set(float value) throws RecordException {
-		set(Float.valueOf(value));
-	}
-
-	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#set(long)
-	 */
-	@Override
-	public void set(long value) throws RecordException {
-		set(Long.valueOf(value));
-	}
-
-	/**
-	 * @see net.sf.JRecord.Details.AbstractFieldValue#set(java.lang.Object)
-	 */
-	@Override
-	public void set(Object value) throws RecordException {
+	public void set(Object value) {
 		if (recordNum >= 0) {
 			theLine.setField(recordNum, fieldNum, value);
+		} else if (field == null) {
+			throw new RuntimeException("Unknown Field !!!");
 		} else {
 			theLine.setField(field, value);
 		}
 	}
 
-	/**
-	 * Get the Type name
-	 * @return Type name
-	 */
+	
 	@Override
-	public String getTypeName() {
-		return ExternalConversion.getTypeAsString(0, getFieldDetail().getType());
+	public boolean isFieldPresent() {
+		
+		if (recordNum >= 0) {
+			return this.theLine.isDefined(recordNum, fieldNum);
+		}
+		if (field == null) {
+			return false;
+		} 
+		
+		return this.theLine.isDefined(field);
 	}
 
-	/**
-	 * Wether it is a Numeric field
-	 * @return is a Numeric field
-	 */
-	@Override
-	public boolean isNumeric() {
-		return getType().isNumeric();
-	}
-
-	/**
-	 * Wether it is a binary Field
-	 * @return is a binary field
-	 */
-	@Override
-	public boolean isBinary() {
-		return getType().isBinary();
-	}
-
-	private Type getType() {
-		return TypeManager.getInstance().getType(getFieldDetail().getType());
-	}
 
 	/**
 	 * Get The field Definition
@@ -302,5 +194,46 @@ public final class FieldValue implements AbstractFieldValue {
 			return field;
 		}
 		return theLine.getLayout().getRecord(recordNum).getField(fieldNum);
+	}
+	
+	@Override
+	public boolean isByteRecord() {
+		return theLine instanceof Line;
+	}
+	
+	
+	@Override
+	public boolean isLowValues() {
+		return false;
+	}
+	
+	@Override
+	public boolean isHighValues() {
+		return false;
+	}
+	
+	@Override
+	public void setHex(String s) {
+		throwError();
+	}
+	
+	@Override
+	public void setToLowValues() {
+		throwError();
+	}
+	
+	
+	@Override
+	public void setToHighValues() {
+		throwError();
+	}
+	
+	private void throwError() {
+		String s = "";
+		if (theLine != null) {
+			s = theLine.getClass().getName();
+		}
+		
+		throw new RuntimeException("Operation is not supported for a " + s);
 	}
 }

@@ -1,3 +1,29 @@
+
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Jean-Francois Gagnon
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2005, Bruce Martin / Jean-Francois Gagnon, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+
 /*
  * @Author Bruce Martin
  * Created on 28/08/2005
@@ -44,9 +70,9 @@ public class BasicManager<managedClass> {
     /**
      *  This class stores / retrieves variations on a Class
      *
-     * @param numberOfSystemEntries the number of system entires
+     * @param numberOfSystemEntries the number of system entries
      * @param startOfUserRange where the user range starts
-     * @param numberOfUserEntries the number of user types to be allowed
+     * @param initialArray array of classes to be stored / requested by the user
      */
     public BasicManager(final int numberOfSystemEntries,
     				    final int startOfUserRange,
@@ -74,7 +100,6 @@ public class BasicManager<managedClass> {
      * @param classId type identifier of the type being top
      * @param obj object to be registered
      *
-     * @throws RecordException any error that occurs
      */
     public void register(int classId, managedClass obj) {
         int idx = getIndex(classId);

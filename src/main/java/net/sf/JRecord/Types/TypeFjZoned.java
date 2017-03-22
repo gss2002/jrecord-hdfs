@@ -10,11 +10,35 @@
  *     so that it can be used seperately. So classes have been moved
  *     to the record package (ie RecordException + new Constant interface
  */
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Jean-Francois Gagnon
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2006, Jean-Francois Gagnon / Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Types;
 
 import net.sf.JRecord.Common.Conversion;
 import net.sf.JRecord.Common.IFieldDetail;
-import net.sf.JRecord.Common.RecordException;
 
 /**
  * Fujitsu Type Zoned Decimal type.
@@ -27,6 +51,7 @@ public class TypeFjZoned extends TypeNum {
 	private static int positiveFjDiff = '@' - '0';
 	private static int negativeFjDiff = 'P' - '0';
 
+	private final boolean overtypePositive;
     /**
      * Define Fujitsu Zoned Decimal Type
      *
@@ -34,13 +59,14 @@ public class TypeFjZoned extends TypeNum {
      * and what is to be displayed on the screen for Fujitsu Zoned Decimal
      * fields.
      */
-    public TypeFjZoned() {
-        super(false, true, true, false, false);
+    public TypeFjZoned(boolean overtypePositive) {
+        super(false, true, true, false, false, false, false);
+        this.overtypePositive = overtypePositive;
     }
 
 
     /**
-     * @see net.sf.JRecord.Types.Type#getField(byte[], int, net.sf.JRecord.Common.FieldDetail)
+     * @see net.sf.JRecord.Types.Type#getField(byte[], int, IFieldDetail)
      */
     public Object getField(byte[] record,
             final int position,
@@ -52,13 +78,12 @@ public class TypeFjZoned extends TypeNum {
 
 
     /**
-     * @see net.sf.JRecord.Types.Type#setField(byte[], int, net.sf.JRecord.Common.FieldDetail, java.lang.Object)
+     * @see net.sf.JRecord.Types.Type#setField(byte[], int, IFieldDetail, Object)
      */
     public byte[] setField(byte[] record,
             final int position,
 			final IFieldDetail field,
-			Object value)
-    throws RecordException {
+			Object value) {
 
 	    copyRightJust(record, formatValueForRecord(field, toNumberString(value)),
 	            position - 1, field.getLen(),
@@ -68,9 +93,8 @@ public class TypeFjZoned extends TypeNum {
 
     
 	@Override
-	public String formatValueForRecord(IFieldDetail field, String value)
-			throws RecordException {
-		String val = toFjZoned(checkValue(field, toNumberString(value)));
+	public String formatValueForRecord(IFieldDetail field, String value) {
+		String val = toAsciiZoned(checkValue(field, toNumberString(value)));
 		if (field.isFixedFormat()) {
 			return Conversion.padFront(val, field.getLen() - val.length(), '0');
 		}
@@ -79,17 +103,16 @@ public class TypeFjZoned extends TypeNum {
 
 
 	/**
-	 * Convert a num to a Fujitsu Zoned Number String
+	 * Convert a num to a Fujitsu/Ascii Zoned Number String
 	 *
 	 * @param num  Numeric string
 	 *
 	 * @return number-string
 	 */
-	private String toFjZoned(String num) {
+	private String toAsciiZoned(String num) {
 
 		String ret;
 		if (num == null || (ret = num.trim()).length() == 0 || ret.equals("-") || ret.equals("+")) {
-			// throw ...
 			return "";
 		}
 
@@ -112,7 +135,7 @@ public class TypeFjZoned extends TypeNum {
 
             if (lastChar < '0' || lastChar > '9') {
                 // throw ...
-            } else {
+            } else if (overtypePositive) {
                 lastChar = (char) (lastChar + positiveFjDiff);
             }
 
@@ -122,6 +145,7 @@ public class TypeFjZoned extends TypeNum {
 
 		return ret;
 	}
+
 
     /**
      * Convert a Fujitsu Zoned Number String to a number string

@@ -19,6 +19,31 @@
  *   - Added new getFieldType method (for Sroting / Jasper interface).
  *
  */
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Types;
 
 import java.math.BigDecimal;
@@ -27,6 +52,7 @@ import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.util.Arrays;
 
+import net.sf.JRecord.Common.AbstractIndexedLine;
 import net.sf.JRecord.Common.CommonBits;
 import net.sf.JRecord.Common.Conversion;
 import net.sf.JRecord.Common.IFieldDetail;
@@ -45,11 +71,14 @@ public class TypeNum extends TypeChar {
 
 //    private static final String STRING_NULL_VALUE = (String) CommonBits.NULL_VALUE;
 //	private static final int BASE_10 = 10;
-    private boolean adjustTheDecimal;
+	private final boolean couldBeHexZero;
+    private final boolean adjustTheDecimal;
+    protected final boolean couldBeEmpty;
     private boolean couldBeLong = true;
     private final boolean positive;
     private boolean usePositiveSign = false;
     private String padChar = " ";
+    private final char decimalPoint;
 
     private int typeIdentifier;
 
@@ -87,10 +116,22 @@ public class TypeNum extends TypeChar {
      * @param isPositive
      */
     public TypeNum(final int typeId, final boolean isPositive) {
-        super(typeId == Type.ftNumLeftJustified, false, true);
+    	this(typeId, isPositive, '.');
+    }
 
+    /**
+     *
+     * @param typeId
+     * @param isPositive
+     */
+    protected TypeNum(final int typeId, final boolean isPositive, char decimalPoint) {
+        super(typeId == Type.ftNumLeftJustified, false, true);
+        
+        boolean adjDecimal = false;
+        this.couldBeHexZero = false;
         setNumeric(true);
         positive = isPositive;
+        this.decimalPoint = decimalPoint;
 
         typeIdentifier = typeId;
 
@@ -106,7 +147,7 @@ public class TypeNum extends TypeChar {
         	break;
         case Type.ftAssumedDecimal:
         case Type.ftAssumedDecimalPositive:
-        	adjustTheDecimal = true;
+        	adjDecimal = true;
         	padChar = "0";
         	break;
         case Type.ftNumCommaDecimal:
@@ -115,6 +156,8 @@ public class TypeNum extends TypeChar {
         case Type.ftNumZeroPaddedPositive:
             padChar = "0";
         }
+        adjustTheDecimal = adjDecimal;
+        couldBeEmpty = false;
 
         couldBeLong = typeId != Type.ftNumLeftJustified;
     }
@@ -143,11 +186,16 @@ public class TypeNum extends TypeChar {
             		  final boolean adjustDecimal,
             		  final boolean couldBeALong,
             		  final boolean isPositive,
-            		  final boolean binary) {
+            		  final boolean binary,
+            		  final boolean couldBeHexHero,
+            		  final boolean numCouldBeEmpty) {
         super(leftJustified, binary, true);
         adjustTheDecimal = adjustDecimal;
         couldBeLong = couldBeALong;
         positive = isPositive;
+        this.couldBeHexZero = couldBeHexHero;
+        this.couldBeEmpty = numCouldBeEmpty;
+        this.decimalPoint = '.';
     }
 
 
@@ -164,13 +212,26 @@ public class TypeNum extends TypeChar {
 	public Object getField(final byte[] record,
 	        final int position,
 			final IFieldDetail currField) {
-	    Object ret = super.getField(record, position, currField);
+		String s = "";
 
-	    ret = addDecimalPoint(ret.toString(), currField.getDecimal());
-	    return ret;
+		if (! isHexZero(record, position, currField.getLen())) {
+			s =  super.getField(record, position, currField).toString();
+		}
+
+	    return addDecimalPoint(s, currField.getDecimal());
 	}
 
 
+//	public final boolean isDefined(final byte[] record, IFieldDetail currField) {
+//		return record.length >= currField.getLen() 
+//			&&  ((couldBeHexZero) || (! isHexZero(record, currField.getPos(), currField.getLen())));
+//	}
+	
+	public final boolean isDefined(final AbstractIndexedLine line, byte[] record, IFieldDetail currField) {
+		int pos = currField.calculateActualPosition(line);
+		return record.length >= pos + currField.getLen() 
+			&&  ((couldBeHexZero) || (! isHexZero(record, pos, currField.getLen())));
+	}
 
 	/**
 	 * Add decimal point to string if necessary
@@ -184,7 +245,7 @@ public class TypeNum extends TypeChar {
 	    int len;
 	    String sign = "";
 
-		if (((decimal > 0)
+		if (((decimal != 0)
 		&& adjustTheDecimal
 		&&  (! s.endsWith(" ")) && Conversion.isInt(s))) {
 		    if (s.startsWith("-")) {
@@ -196,16 +257,23 @@ public class TypeNum extends TypeChar {
 		    	}
 		    }
 
-		    if (s.length() <= decimal) {
-		        int i;
-		        for (i = 0; i <= decimal; i++) {
-		            s = "0" + s;
-		        }
-		    }
-		    len = s.length();
+		    if (decimal > 0) {	    	
+			    if (s.length() <= decimal) {
+			        StringBuilder b = new StringBuilder();
+			        char[] z = new char[decimal - s.length() + 1];
+					Arrays.fill(z, '0');
+			        s = b.append(z).append(s).toString();
+			    }
+			    len = s.length();
 
-		    s = sign + Conversion.numTrim(s.substring(0, len - decimal))
-		      + Conversion.getDecimalchar() + s.substring(len - decimal);
+			    s = sign + Conversion.numTrim(s.substring(0, len - decimal))
+			      + Conversion.getDecimalchar() + s.substring(len - decimal);
+		    } else {
+		    	StringBuilder b = new StringBuilder(s);
+		        char[] z = new char[-decimal];
+		        Arrays.fill(z, '0');
+		        s =  Conversion.numTrim(b.append(z).toString());
+		    }
 		} else if (s.length() > 0) {
 		    s = Conversion.numTrim(s);
 		}
@@ -229,8 +297,7 @@ public class TypeNum extends TypeChar {
 	public byte[] setField(byte[] record,
 	        final int position,
 			final IFieldDetail field,
-			Object value)
-	throws RecordException {
+			Object value) {
 		return setFieldToVal(record, position, field, checkValue(field, toNumberString(value)));
 	}
 
@@ -238,13 +305,20 @@ public class TypeNum extends TypeChar {
 	protected final byte[] setFieldToVal(byte[] record,
 	        final int position,
 			final IFieldDetail field,
-			String val)
-	throws RecordException {
+			String val) {
 
 	    int len = field.getLen();
 	    int pos = position - 1;
 	    String font = field.getFontName();
 
+	    if (val != null && val.length() > 0) {
+	    	String v = Conversion.numTrim(val, decimalPoint);
+	    	if (( v.length() == 0 || v.charAt(0) == '.' || v.charAt(0) == ',' || v.charAt(0) == decimalPoint)) {
+	    		v = '0' + v;
+	    	}
+	    	val = v;
+	    }
+	    
 	    checkCharNumLength(val, len);
 
 	    if (padChar.equals("0") && val.startsWith("-")) {
@@ -278,10 +352,8 @@ public class TypeNum extends TypeChar {
 	 * @param val value to be formated
 	 *
 	 * @return value value as it is store in the record
-	 * @throws RecordException any conversion errors
 	 */
-	public String formatValueForRecord(IFieldDetail field, String val)
-	throws RecordException {
+	public String formatValueForRecord(IFieldDetail field, String val) {
 		String ret = checkValue(field, val);
 		if (isBinary()) return ret;
 
@@ -356,23 +428,30 @@ public class TypeNum extends TypeChar {
 				throws RecordException {
 
 
+		if (couldBeEmpty && (val == null || val.trim().length() == 0)) {
+			return "";
+		}
 		if (val == null || val == CommonBits.NULL_VALUE) {
 			val = "0";
 		}
-	    if (field.getDecimal() == 0 && couldBeLong) {
+	    int decimal = field.getDecimal();
+	    
+	   
+		if (decimal == 0 && couldBeLong && (val.indexOf('e') < 0 && val.indexOf('E') < 0 )) {
 	        try {
 	            val = val.trim();
 	            if (val.startsWith("+")) {
 	                val = val.substring(1);
 	            }
 	            if (val.lastIndexOf('.') >= 0) {
-	            	val = new BigDecimal(val).toString();
+	            	//val = new BigDecimal(val).toString();
 	            	
 	            	val = val.substring(0, val.lastIndexOf('.'));
 	            }
 	            new BigInteger(val);
 	        } catch (final Exception ex) {
-	            throw new RecordException("Invalid Integer :" + val + ": ~ " + ex);
+	        	ex.printStackTrace();
+	            throw new RecordException(field.getName() + " Invalid Integer :" + val + ": ~ " + ex);
 	        }
 	    } else {
 	        try {
@@ -381,14 +460,14 @@ public class TypeNum extends TypeChar {
 
 	            NumberFormat nf = getNumberFormat();
 	            nf.setGroupingUsed(false);
-	            if ((field.getDecimal() > 0) && adjustTheDecimal) {
+	            if ((decimal != 0 && adjustTheDecimal) || decimal < 0) {
 	                decimalVal = adjustForDecimal(field, decimalVal);
 //	                decimalVal = decimalVal.multiply(new BigDecimal(
 //	                        java.lang.Math.pow(BASE_10, field.getDecimal())));
 	                nf.setMaximumFractionDigits(0);
 	            } else {
-	                nf.setMaximumFractionDigits(field.getDecimal());
-	                nf.setMinimumFractionDigits(field.getDecimal());
+	                nf.setMaximumFractionDigits(decimal);
+	                nf.setMinimumFractionDigits(decimal);
 	            }
 	            nf.setRoundingMode(RoundingMode.DOWN);
 	            val = nf.format(decimalVal);
@@ -438,7 +517,7 @@ public class TypeNum extends TypeChar {
 	 * @return adjusted decimal value
 	 */
 	protected BigDecimal adjustForDecimal(IFieldDetail field, BigDecimal decimalVal) {
-	    if ((field.getDecimal() > 0) && adjustTheDecimal) {
+	    if ((field.getDecimal() != 0) && adjustTheDecimal) {
 //	        decimalVal = decimalVal.setScale(decimalVal.scale() + field.getDecimal());
 //	        decimalVal = decimalVal.multiply(new BigDecimal(BigInteger.ONE, field.getDecimal()));
 //		        java.lang.Math.pow(BASE_10, field.getDecimal())));
@@ -457,15 +536,14 @@ public class TypeNum extends TypeChar {
 	 *
 	 * @param val value to check
 	 * @param length length to check it against
-	 *
-	 * @throws RecordException to big error
+	 * 
 	 */
 	private void checkCharNumLength(String val, int length) throws RecordException {
 
 	    if (val.length() > length) {
 	        throw new RecordException(
-	        		"Value is to big !! {0} > {1}",
-	        		new Object[] {val.length(), length});
+	        		"Value {0} is to big !! {1} > {2}",
+	        		new Object[] {val, val.length(), length});
 	    }
 	}
 
@@ -529,8 +607,7 @@ public class TypeNum extends TypeChar {
 		return record;
     }
 
-	protected final BigInteger formatAsBigInt(final IFieldDetail field, Object value)
-	throws RecordException {
+	protected final BigInteger formatAsBigInt(final IFieldDetail field, Object value) {
     	BigInteger v;
 
         if (value == null || value == CommonBits.NULL_VALUE) {

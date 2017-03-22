@@ -1,3 +1,28 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.CsvParser;
 
 import java.util.ArrayList;
@@ -5,10 +30,12 @@ import java.util.List;
 import java.util.StringTokenizer;
 
 import net.sf.JRecord.Common.Constants;
+import net.sf.JRecord.Common.Conversion;
 import net.sf.JRecord.Types.Type;
 
 /**
- * Class contains comon code for use in other CSV parser's
+ * Class contains common code for use in other CSV parser's
+ * A <i>Csv Parser</i> is used to split a Csv line in to seperate fields
  *
  *
  * @author Bruce Martin
@@ -26,8 +53,8 @@ public abstract class BaseCsvLineParser  {
     }
 
     /**
-     * Wether Quote is to be used in column names
-     * @return
+     * Whether Quote is to be used in column names
+     * @return whether there a quote is to be used in column names 
      */
 	public boolean isQuoteInColumnNames() {
 		return quoteInColNames;
@@ -44,7 +71,7 @@ public abstract class BaseCsvLineParser  {
 		ArrayList<String> ret = new ArrayList<String>();
 
         StringTokenizer tok = new StringTokenizer(
-                line, lineDef.getDelimiter(), false);
+                line, getDelimFromCsvDef(lineDef), false);
         String s;
         String quote = lineDef.getQuote();
 
@@ -69,24 +96,38 @@ public abstract class BaseCsvLineParser  {
 	}
 
 	/**
+	 * @param lineDef
+	 * @return
+	 */
+	protected final String getDelimFromCsvDef(ICsvDefinition lineDef) {
+		String delimiter = lineDef.getDelimiter();
+		if (delimiter == null || delimiter.length() < 5) {
+			
+		} else if (delimiter.startsWith("x'")) {
+			delimiter = Conversion.toString(new byte[] { Conversion.getByteFromHexString(delimiter) }, lineDef.getFontName());
+		}
+		return delimiter;
+	}
+
+	/**
 	 * Convert a list of column names into a line
 	 *
 	 * @param names list of column names
 	 * @param lineDef Csv Definition
-	 * @return
+	 * @return The formated column name line (1st line in the file)
 	 */
 	public String getColumnNameLine(List<String> names, ICsvDefinition lineDef) {
 		StringBuilder buf = new StringBuilder();
 		String currDelim = "";
 		String quote = lineDef.getQuote();
+        String delim = getDelimFromCsvDef(lineDef);
 
 		for (int i = 0; i < names.size(); i++) {
 	        buf.append(currDelim)
                .append(quote)
                .append(names.get(i))
                .append(quote);
-            currDelim = lineDef.getDelimiter();
-
+ 			currDelim = delim;
 		}
 
 		return buf.toString();
@@ -163,7 +204,7 @@ public abstract class BaseCsvLineParser  {
 			return "";
 		}
 		StringBuffer buf = new StringBuffer(fields[0]);
-	    String delimiter = lineDef.getDelimiter();
+	    String delimiter = getDelimFromCsvDef(lineDef);
 		for (int i = 1; i < fields.length; i++) {
 	        buf.append(delimiter);
 	        if (fields[i] != null) {

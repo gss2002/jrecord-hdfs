@@ -1,3 +1,28 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.CsvParser;
 
 import java.util.ArrayList;
@@ -47,7 +72,7 @@ public class StandardCsvLineParser extends BaseCsvLineParser implements ICsvLine
 
 
 	/**
-	 * @see net.sf.JRecord.CsvParser.ICsvLineParser#getField(int, java.lang.String, java.lang.String, java.lang.String)
+	 * @see net.sf.JRecord.CsvParser.ICsvLineParser#getField(int, String, ICsvDefinition)
 	 */
 	public String getField(int fieldNumber, String line, ICsvDefinition lineDef) {
 		String[] lineVals = split(fieldNumber, line, lineDef);
@@ -82,7 +107,7 @@ public class StandardCsvLineParser extends BaseCsvLineParser implements ICsvLine
 	}
 
 	/**
-	 * @see net.sf.JRecord.CsvParser.ICsvLineParser#setField(int, int, java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+	 * @see net.sf.JRecord.CsvParser.ICsvLineParser#setField(int, int, String, ICsvDefinition, String)
 	 */
 	public String setField(int fieldNumber, int fieldType, String line, ICsvDefinition lineDef, String newValue) {
 		String[] lineVals = split(fieldNumber, line, lineDef);
@@ -90,7 +115,7 @@ public class StandardCsvLineParser extends BaseCsvLineParser implements ICsvLine
 		if (newValue == null) {
 			s = "";
 		}
-		String delimiter = lineDef.getDelimiter();
+		String delimiter = super.getDelimFromCsvDef(lineDef);
 		String quote = lineDef.getQuote();
 		int quoteLength = 1;
 		if (quote != null && quote.length() > 0) {
@@ -124,7 +149,7 @@ public class StandardCsvLineParser extends BaseCsvLineParser implements ICsvLine
 		if (s == null) {
 			s = "";
 		} else {
-			String delimiter = lineDef.getDelimiter();
+			String delimiter = super.getDelimFromCsvDef(lineDef);
 			String quote = lineDef.getQuote();
 			int quoteLength = 1;
 			if (quote != null && quote.length() > 0) {
@@ -174,7 +199,7 @@ public class StandardCsvLineParser extends BaseCsvLineParser implements ICsvLine
 		boolean lastCharQuote = false;
 		int currFieldNumber = 0;
 		int i = 0;
-		String delimiter = lineDef.getDelimiter();
+		String delimiter = super.getDelimFromCsvDef(lineDef);
 		String quote = lineDef.getQuote();
 		int quoteLength = 1;
 		if (quote != null && quote.length() > 0) {

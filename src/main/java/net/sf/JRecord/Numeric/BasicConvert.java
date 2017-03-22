@@ -1,7 +1,33 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Numeric;
 
 import net.sf.JRecord.Common.Constants;
 import net.sf.JRecord.Types.Type;
+import net.sf.cb2xml.def.Cb2xmlConstants;
 
 /**
  * Standard Cobol Type to JRecord Type conversion class.
@@ -10,9 +36,9 @@ import net.sf.JRecord.Types.Type;
  *
  */public class BasicConvert implements Convert {
 
-    private int identifier;
+    private final int identifier;
 
-    private int binId;
+    private final int binId;
     private boolean usePositiveInteger;
 
     private int defaultVbFileStructure = Constants.IO_DEFAULT;
@@ -41,9 +67,7 @@ import net.sf.JRecord.Types.Type;
  		}
     	identifier = id;
 
-
         binId = binaryId;
-
     }
 
 
@@ -65,14 +89,14 @@ import net.sf.JRecord.Types.Type;
     	if (picture.startsWith("-9(") || picture.startsWith("+++9") || picture.startsWith("+(2)9")) {
     		lType = -121;
     	}
-        if ("computational".equals(usage)
-        || "computational-4".equals(usage)
-        || "computational-5".equals(usage)
-        || "computational-6".equals(usage)
-        || "binary".equals(usage)) {
-        	if (binId == Convert.FMT_MAINFRAME
-           	||  binId == Convert.FMT_FUJITSU
-           	||  binId == Convert.FMT_BIG_ENDIAN) {
+        if (Cb2xmlConstants.COMP.equalsIgnoreCase(usage)
+        || Cb2xmlConstants.COMP_4.equalsIgnoreCase(usage) 
+        || Cb2xmlConstants.COMP_5.equalsIgnoreCase(usage)
+        || Cb2xmlConstants.COMP_6.equalsIgnoreCase(usage)
+        || Cb2xmlConstants.BINARY.equalsIgnoreCase(usage)) {
+        	if (binId == ICopybookDialects.FMT_MAINFRAME
+           	||  binId == ICopybookDialects.FMT_FUJITSU
+           	||  binId == ICopybookDialects.FMT_BIG_ENDIAN) {
                  lType = Type.ftBinaryBigEndian;
                  if (positive) {
                 	 lType = Type.ftBinaryBigEndianPositive;
@@ -89,14 +113,14 @@ import net.sf.JRecord.Types.Type;
                     }
                 }
             }
-        } else if ("computational-3".equals(usage) || "packed-decimal".equals(usage)) {
+        } else if (Cb2xmlConstants.COMP_3.equalsIgnoreCase(usage) || Cb2xmlConstants.PACKED_DECIMAL.equalsIgnoreCase(usage)) {
             lType = Type.ftPackedDecimal;
             if (positive) {
             	lType = Type.ftPackedDecimalPostive;
             }
-        } else if ("computational-1".equals(usage)) {
+        } else if (Cb2xmlConstants.COMP_1.equalsIgnoreCase(usage)) {
             lType = Type.ftFloat;
-        } else if ("computational-2".equals(usage)) {
+        } else if (Cb2xmlConstants.COMP_2.equalsIgnoreCase(usage)) {
             lType = Type.ftDouble;
         } else if (! CommonCode.checkPictureNumeric(picture, '.')) {
         	return Type.ftChar;
@@ -105,19 +129,36 @@ import net.sf.JRecord.Types.Type;
 //        		&& picture.indexOf('Z') < 0
 //        		&& picture.indexOf(',') < 0
 //        		&& (! picture.startsWith("S"))
-        		&& (picture.startsWith("-") || picture.startsWith("+") || picture.startsWith("9"))
-        		&& CommonCode.checkPicture(picture, '9', '.')
+        		&& (picture.startsWith("-") || picture.startsWith("+") || picture.startsWith("9")
+        				|| picture.endsWith("-") || picture.endsWith("+"))
+        		&& CommonCode.checkPicture(picture, '9', '.', 'V')
         ) {
         	if (picture.startsWith("-")) {
         		lType = Type.ftNumZeroPadded;
-        	} else if (picture.startsWith("9")) {
-        		lType = Type.ftNumZeroPaddedPositive;
+        		if (picture.indexOf('V') >= 0) {
+        			lType = Type.ftSignSeparateLead;
+//         		} else if (picture.indexOf('.') >= 0) {
+//         			lType = Type.ftSignSepLeadActualDecimal;
+         		}
         	} else if (picture.startsWith("+")) {
-        		lType = Type.ftNumZeroPaddedPN;
+        		lType = Type.ftNumZeroPaddedPN ;
+          		if (picture.indexOf('V') >= 0) {
+        			lType = Type.ftSignSeparateLead;
+//         		} else if (picture.indexOf('.') >= 0) {
+//         			lType = Type.ftSignSepLeadActualDecimal;
+         		}
+        	} else if (picture.endsWith("-") || picture.endsWith("+")) {
+       			lType = Type.ftSignSeparateTrail;
+       			if (picture.indexOf('.') >= 0) {
+         			lType = Type.ftSignSepTrailActualDecimal;
+         		}
+        	} else if (picture.startsWith("9") && (picture.indexOf('V') < 0)) {
+        		lType = Type.ftNumZeroPaddedPositive;
         	} else {
         		lType = chkRest(lType, usage, picture, signed, signSeperate, signPosition);
         	}
          } else {
+//        	 System.out.println(">" + picture + "< " + picture.indexOf('9') + " " + picture.startsWith("9") + " " + picture.endsWith("+"));
      		lType = chkRest(lType, usage, picture, signed, signSeperate, signPosition);
         }
         return lType;
@@ -125,7 +166,7 @@ import net.sf.JRecord.Types.Type;
 
     private int chkRest(int lType, String usage, String picture, boolean signed,
 			boolean signSeperate, String signPosition) {
-    	if (picture.startsWith("+") && CommonCode.checkPicture(picture, '+', '.')) {
+    	if (picture.startsWith("+") && CommonCode.checkPicture(picture, '+', '.', 'V')) {
     		lType = Type.ftNumRightJustifiedPN;
     	} else if (picture.indexOf('Z') >= 0
     			||  picture.indexOf('-') >= 0
@@ -133,7 +174,7 @@ import net.sf.JRecord.Types.Type;
     			||  picture.indexOf('.') >= 0) {
     		lType = Type.ftNumRightJustified;
     	} else {
-    		lType = CommonCode.commonTypeChecks(binId, usage, picture, signed, signSeperate, signPosition);
+    		lType = CommonCode.commonTypeChecks(identifier, usage, picture, signed, signSeperate, signPosition);
     	}
 
     	return lType;

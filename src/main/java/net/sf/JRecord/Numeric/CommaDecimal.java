@@ -1,7 +1,39 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Numeric;
 
 import net.sf.JRecord.Types.Type;
 
+
+/**
+ * This class converts an existing @see {@link Convert} into an equivalent {@link Convert} 
+ * but with  comma's used instead of decimal points. 
+ * @author Bruce Martin
+ *
+ */
 public class CommaDecimal implements Convert {
 
 	private final Convert baseConversion;
@@ -9,6 +41,13 @@ public class CommaDecimal implements Convert {
 
 
 
+	/**
+	 * This class converts an existing @see {@link Convert} into an equivalent {@link Convert} 
+	 * but with  comma's used instead of decimal points
+	 * 
+	 * @param identifier conversion identifier
+	 * @param baseConversion conversion on which this conversion is based.
+	 */
 	public CommaDecimal(int identifier, Convert baseConversion) {
 		super();
 		this.id = identifier;
@@ -16,7 +55,7 @@ public class CommaDecimal implements Convert {
 	}
 
 	/**
-	 * @return
+	 * @return the "Convert" this class is based on
 	 * @see net.sf.JRecord.Numeric.Convert#getNumericDefinition()
 	 */
 	@Override
@@ -38,7 +77,7 @@ public class CommaDecimal implements Convert {
 
 		} else if (picture.indexOf('9') >= 0
         		&& (picture.startsWith("-") || picture.startsWith("+") || picture.startsWith("9"))
-                && CommonCode.checkPicture(picture, '9', ',')
+                && CommonCode.checkPicture(picture, '9', ',', ',')
         ) {
         	if (picture.startsWith("-")) {
         		return Type.ftNumCommaDecimal;
@@ -47,12 +86,12 @@ public class CommaDecimal implements Convert {
         	} else if (picture.startsWith("+")) {
         		return Type.ftNumCommaDecimalPN;
         	}
-		} else if (  (picture.startsWith("-") && CommonCode.checkPicture(picture, '-', ','))
-				  || (picture.startsWith("Z") && CommonCode.checkPicture(picture, 'Z', ','))
+		} else if (  (picture.startsWith("-") && CommonCode.checkPicture(picture, '-', ',', ','))
+				  || (picture.startsWith("Z") && CommonCode.checkPicture(picture, 'Z', ',', ','))
 		) {
 				return Type.ftNumRightJustCommaDp;
 		} else if (picture.startsWith("+")
-				&& CommonCode.checkPicture(picture, '+', ',')
+				&& CommonCode.checkPicture(picture, '+', ',', ',')
 		) {
 				return Type.ftNumRightJustCommaDpPN;
 		}
@@ -60,7 +99,6 @@ public class CommaDecimal implements Convert {
 	}
 
 	/**
-	 * @return
 	 * @see net.sf.JRecord.Numeric.Convert#getIdentifier()
 	 */
 	@Override
@@ -69,7 +107,7 @@ public class CommaDecimal implements Convert {
 	}
 
 	/**
-	 * @return
+	 * @return binary indentifier
 	 * @see net.sf.JRecord.Numeric.Convert#getBinaryIdentifier()
 	 */ @Override
 	public int getBinaryIdentifier() {
@@ -79,7 +117,7 @@ public class CommaDecimal implements Convert {
 	/**
 	 * @param multipleRecordLengths
 	 * @param binary
-	 * @return
+	 * @return calculate the file structure (file organisation)
 	 * @see net.sf.JRecord.Numeric.Convert#getFileStructure(boolean, boolean)
 	 */ @Override
 	public int getFileStructure(boolean multipleRecordLengths, boolean binary) {
@@ -87,7 +125,7 @@ public class CommaDecimal implements Convert {
 	}
 
 	/**
-	 * @return
+	 * @return get the conversion name
 	 * @see net.sf.JRecord.Numeric.Convert#getName()
 	 */ @Override
 	public String getName() {

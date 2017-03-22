@@ -1,3 +1,28 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Common;
 
 import java.math.BigDecimal;
@@ -82,37 +107,41 @@ public interface AbstractFieldValue {
 	 */
 	public String asHex();
 	
-	
 	/**
 	 * Set the fields value
 	 * @param value new value
 	 */
-	public void set(Object value) throws RecordException;
-	
-	/**
-	 * Set the fields value
-	 * @param value new value
-	 */
-	public void set(long value) throws RecordException;
-	
-	/**
-	 * Set the fields value
-	 * @param value new value
-	 */
-	public void set(double value) throws RecordException;
+	public void set(AbstractFieldValue value);
 
 	/**
 	 * Set the fields value
 	 * @param value new value
 	 */
-	public void set(float value) throws RecordException;
+	public void set(Object value);
+	
+	/**
+	 * Set the fields value
+	 * @param value new value
+	 */
+	public void set(long value);
+	
+	/**
+	 * Set the fields value
+	 * @param value new value
+	 */
+	public void set(double value);
+
+	/**
+	 * Set the fields value
+	 * @param value new value
+	 */
+	public void set(float value);
 
 	/**
 	 * Set the field Value
 	 * @param value new value
-	 * @throws RecordException
 	 */
-	public void set(boolean value) throws RecordException;
+	public void set(boolean value);
 
 	/**
 	 * Get Field Definition

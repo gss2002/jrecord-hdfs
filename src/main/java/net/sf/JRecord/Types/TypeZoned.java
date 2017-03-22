@@ -24,6 +24,31 @@
  *    This will overcome a problem with German-Ebcdic where 
  *    +0 = accented-a instead of {
  **/
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Types;
 
 import net.sf.JRecord.Common.Conversion;
@@ -54,15 +79,15 @@ public class TypeZoned extends TypeNum {
      * fields.
      */
     public TypeZoned() {
-        super(false, true, true, false, false);
+        super(false, true, true, false, false, false, false);
     }
 
     public TypeZoned(boolean positive) {
-        super(false, true, true, positive, false);
+        super(false, true, true, positive, false, false, false);
     }
 
     /**
-     * @see net.sf.JRecord.Types.Type#getField(byte[], int, net.sf.JRecord.Common.FieldDetail)
+     * @see net.sf.JRecord.Types.Type#getField(byte[], int, IFieldDetail)
      */
     public Object getField(byte[] record,
             final int position,
@@ -76,7 +101,8 @@ public class TypeZoned extends TypeNum {
 			String charset = field.getFontName();
 			if (Conversion.isSingleByteEbcidic(charset)) {
 				String sign = "";
-				byte signByte = record[field.getEnd() - 1];
+				int end = position + field.getLen() - 1;
+				byte signByte = record[end - 1];
 				if (((byte) (signByte & HIGH_NYBLE)) == ZONED_NEGATIVE_NYBLE_VALUE) {
 					sign = "-";
 				}
@@ -101,8 +127,9 @@ public class TypeZoned extends TypeNum {
 
 
     /**
-     * @see net.sf.JRecord.Types.Type#setField(byte[], int, net.sf.JRecord.Common.FieldDetail, java.lang.Object)
+     * @see net.sf.JRecord.Types.Type#setField(byte[], int, IFieldDetail, Object)
      */
+    @Override
     public byte[] setField(byte[] record,
             final int position,
 			final IFieldDetail field,
@@ -147,8 +174,7 @@ public class TypeZoned extends TypeNum {
     
     
     @Override
-	public String formatValueForRecord(IFieldDetail field, String value)
-			throws RecordException {
+	public String formatValueForRecord(IFieldDetail field, String value) {
         String val = checkValue(field, toNumberString(value));
 	    String charset = field.getFontName();
 	    if (Conversion.isSingleByteEbcidic(charset)) {
@@ -177,7 +203,7 @@ public class TypeZoned extends TypeNum {
 	private void byteLevelAssign(byte[] record,
             final int position,
 			final IFieldDetail field,
-			String val) throws RecordException {
+			String val) {
 		byte andByte = ZONED_POSITIVE_NYBLE_OR;
 		int len = field.getLen();
 		int endPos = len + position - 2;

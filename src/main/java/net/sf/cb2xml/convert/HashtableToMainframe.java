@@ -10,6 +10,8 @@ package net.sf.cb2xml.convert;
 
 import java.util.Hashtable;
 
+import net.sf.cb2xml.def.Cb2xmlConstants;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -52,9 +54,10 @@ public class HashtableToMainframe {
   public String convert(Hashtable keyAndValuePairs, Document copyBookXml) {
     this.keyValuePairs = keyAndValuePairs;
     Element documentElement = copyBookXml.getDocumentElement();
-    Element element = (Element) documentElement.getFirstChild();
+    //Element element = (Element) documentElement.getFirstChild();
+    Element element = Utils.getFirstElement(documentElement);
     String documentTagName = documentElement.getTagName();
-    String tagName = element.getAttribute("name");
+    String tagName = element.getAttribute(Cb2xmlConstants.NAME);
     String xpath = "/" + documentTagName + "/" + tagName;
     return convertNode(element, xpath).deleteCharAt(0).toString();
   }
@@ -62,25 +65,26 @@ public class HashtableToMainframe {
   private StringBuffer convertNode(Element element, String xpath) {
     StringBuffer segment = new StringBuffer();
     segment.append('0');
-    int position = Integer.parseInt(element.getAttribute("position"));
-    int length = Integer.parseInt(element.getAttribute("storage-length"));
+    int position = Integer.parseInt(element.getAttribute(Cb2xmlConstants.POSITION));
+    int length = Integer.parseInt(element.getAttribute(Cb2xmlConstants.STORAGE_LENGTH));
+    boolean numeric = Cb2xmlConstants.TRUE.equalsIgnoreCase(element.getAttribute(Cb2xmlConstants.NUMERIC));
     int childElementCount = 0;
     NodeList nodeList = element.getChildNodes();
     for (int i = 0; i < nodeList.getLength(); i++) {
       org.w3c.dom.Node node = nodeList.item(i);
       if (node.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
         Element childElement = (Element) node;
-        if (!childElement.getAttribute("level").equals("88")) {
-          String childElementName = childElement.getAttribute("name");
+        if (!childElement.getAttribute(Cb2xmlConstants.LEVEL).equals("88")) {
+          String childElementName = childElement.getAttribute(Cb2xmlConstants.NAME);
           childElementCount++;
           int childPosition = Integer.parseInt(childElement.getAttribute(
-              "position"));
+              Cb2xmlConstants.POSITION));
           StringBuffer tempBuffer = null;
-          if (childElement.hasAttribute("occurs")) {
+          if (childElement.hasAttribute(Cb2xmlConstants.OCCURS)) {
             tempBuffer = new StringBuffer();
             tempBuffer.append('0');
             int childOccurs = Integer.parseInt(childElement.getAttribute(
-                "occurs"));
+                Cb2xmlConstants.OCCURS));
             //int childLength = Integer.parseInt(childElement.getAttribute(
             //    "length"));
            // int singleChildLength = childLength / childOccurs;
@@ -98,7 +102,7 @@ public class HashtableToMainframe {
             tempBuffer = convertNode(childElement,
                                      xpath + "/" + childElementName);
           }
-          if (childElement.hasAttribute("redefines") &&
+          if (childElement.hasAttribute(Cb2xmlConstants.REDEFINES) &&
               tempBuffer.charAt(0) == '1') {
             tempBuffer.deleteCharAt(0);
             int replacePosition = childPosition - position;
@@ -119,17 +123,43 @@ public class HashtableToMainframe {
     if (childElementCount == 0) {
       if (keyValuePairs.containsKey(xpath)) {
         segment.setCharAt(0, '1');
-        segment.append(keyValuePairs.get(xpath));
+        
+        Object obj = keyValuePairs.get(xpath);
+        String s = obj==null ? "" : obj.toString();
+        if (s.length() < length) {
+        	if (numeric) {
+        		if (s.startsWith("-")) {
+        			segment	.append('-')
+        					.append(getRepeatedChars('0', length-s.length()))
+        					.append(s);
+        		} else {
+        			if (s.startsWith("+")) {
+        				s = s.substring(1);
+        			}
+        			segment	.append(getRepeatedChars('0', length-s.length()))
+        					.append(s);
+        		}
+        	} else {
+        		segment	.append(s)
+        				.append(getRepeatedChars(' ', length-s.length()));
+        	}
+        } else if (s.length() < length) {
+        	segment.append( s.substring(0, length));
+        } else {
+        	segment.append(s);
+        }
       }
       else {
-        if (element.hasAttribute("value")) {
-          segment.append(element.getAttribute("value"));
+        if (element.hasAttribute(Cb2xmlConstants.VALUE)) {
+          segment.append(element.getAttribute(Cb2xmlConstants.VALUE));
         }
-        else if (element.hasAttribute("spaces")) {
-          segment.append(getRepeatedChars(' ', length));
-        }
+//        else if (element.hasAttribute("spaces")) {
+//          segment.append(getRepeatedChars(' ', length));
+//        }
         else if (element.hasAttribute("zeros")) {
           segment.append(getRepeatedChars('0', length));
+        } else {
+          segment.append(getRepeatedChars(' ', length));
         }
       }
     }

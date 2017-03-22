@@ -15,6 +15,31 @@
  *     to the record package (ie RecordException + new Constant interface
  *   - Added new Date and Checkbox types
  */
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2005, Bruce Martin / Jean-Francois Gagnon, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Types;
 
 import net.sf.JRecord.Common.Messages;
@@ -33,10 +58,9 @@ import net.sf.JRecord.Common.RecordException;
  */
 public class TypeManager {
 
- 	public static final int SYSTEM_ENTRIES = 150;
+ 	public static final int SYSTEM_ENTRIES = Type.LAST_SYSTEM_TYPE;
 
     public static final int INVALID_INDEX  = SYSTEM_ENTRIES - 1;
-
 
     private Type[] types;
 
@@ -45,7 +69,8 @@ public class TypeManager {
     private int userSize;
 
     private static TypeManager systemTypeManager = null;
-
+    
+ 
 
     /**
      * This class stores / retrieves types definitions
@@ -83,6 +108,7 @@ public class TypeManager {
             types[Type.ftCharRightJust]			= new TypeChar(false);
             types[Type.ftCharNullPadded]		= new TypeCharPadded();
             types[Type.ftCharNullTerminated]	= new TypeCharNullTerminated();
+            types[Type.ftCharNoTrim]			= new TypeChar(true, false, false, false, false);
 
             types[Type.ftNumLeftJustified]		= new TypeNum(Type.ftNumLeftJustified);
             types[Type.ftNumRightJustified]		= new TypeNum(Type.ftNumRightJustified);
@@ -99,10 +125,13 @@ public class TypeManager {
             types[Type.ftNumCommaDecimalPositive] = new TypeCommaDecimalPoint(Type.ftNumCommaDecimalPositive, true);
             types[Type.ftSignSeparateLead]		= new TypeSignSeparate(Type.ftSignSeparateLead);
             types[Type.ftSignSeparateTrail]		= new TypeSignSeparate(Type.ftSignSeparateTrail);
+            types[Type.ftSignSepLeadActualDecimal]	= new TypeSignSeparate(Type.ftSignSepLeadActualDecimal);
+            types[Type.ftSignSepTrailActualDecimal]= new TypeSignSeparate(Type.ftSignSepTrailActualDecimal);
             types[Type.ftZonedNumeric]			= new TypeZoned();
 
-            types[Type.ftNumAnyDecimal]			= new TypeNumAnyDecimal(false);
-            types[Type.ftPositiveNumAnyDecimal]	= new TypeNumAnyDecimal(true);
+            types[Type.ftNumAnyDecimal]			= new TypeNumAnyDecimal(false, false);
+            types[Type.ftPositiveNumAnyDecimal]	= new TypeNumAnyDecimal(true, false);
+            types[Type.ftNumOrEmpty]			= new TypeNumAnyDecimal(false, true);
 
             types[Type.ftFloat]					= new TypeFloat();
             types[Type.ftDouble]				= new TypeFloat();
@@ -116,19 +145,19 @@ public class TypeManager {
             types[Type.ftPostiveBinaryInt]		= new TypeBinLittleEndian(true);
             types[Type.ftBinaryInt]				= new TypeBinLittleEndian(false);
             types[Type.ftBinaryBigEndian]		= new TypeBinBigEndian(false);
-            types[Type.ftBinaryBigEndianPositive]= new TypeBinBigEndian(true, false);
-            types[Type.ftPositiveBinaryBigEndian]= new TypeBinBigEndian(true);
+            types[Type.ftBinaryBigEndianPositive]= new TypeBinBigEndian(true, false); // Signed integer but only positive numbers allowed for 2 bytes 0->32k
+            types[Type.ftPositiveBinaryBigEndian]= new TypeBinBigEndian(true);        // C uint - unsigned integer for 2 bytes 0->64k
 
             types[Type.ftRmComp]				= new TypeRmComp();
             types[Type.ftRmCompPositive]		= new TypeRmCompPositive();
 
             types[Type.ftBit]					= new TypeBit();
 
-            types[Type.ftFjZonedNumeric]		= new TypeFjZoned();
+            types[Type.ftFjZonedNumeric]		= new TypeFjZoned(true);
+            types[Type.ftGnuCblZonedNumeric]    = new TypeFjZoned(false);
 
 //            types[Type.ftCharRestOfFixedRecord] = new TypeCharRestOfFixedRecord();
             types[Type.ftCharRestOfRecord]		= new TypeCharRestOfRecord();
-
         }
     }
 
@@ -139,10 +168,8 @@ public class TypeManager {
      * @param typeId type identifier of the type being top
      * @param typeDef type being registered
      *
-     * @throws RecordException any error that occurs
      */
-    public void registerType(int typeId, Type typeDef)
-    throws RecordException {
+    public void registerType(int typeId, Type typeDef) {
         int idx = getIndex(typeId);
 
         if (idx == INVALID_INDEX) {
@@ -232,6 +259,11 @@ public class TypeManager {
 		return getInstance().getType(typeId).isNumeric();
 	}
 
+	public static boolean isBinary(int typeId) {
+		Type type = getInstance().getType(typeId);
+		return type.isNumeric() && (type instanceof TypeNum) && ((TypeNum) type).isBinary();
+	}
+
 	/**
 	 * return whether the type has a floating decimal.
 	 * @param typeId type to check
@@ -264,4 +296,5 @@ public class TypeManager {
 	public final int getUserSize() {
 		return userSize;
 	}
+	
 }

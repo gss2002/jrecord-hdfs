@@ -1,10 +1,37 @@
+/*  -------------------------------------------------------------------------
+ *
+ *                Project: JRecord
+ *    
+ *    Sub-Project purpose: Provide support for reading Cobol-Data files 
+ *                        using a Cobol Copybook in Java.
+ *                         Support for reading Fixed Width / Binary / Csv files
+ *                        using a Xml schema.
+ *                         General Fixed Width / Csv file processing in Java.
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+
 package net.sf.JRecord.Details;
 
 import net.sf.JRecord.Common.Constants;
 import net.sf.JRecord.Common.Conversion;
 import net.sf.JRecord.Common.FieldDetail;
 import net.sf.JRecord.Common.IFieldDetail;
-import net.sf.JRecord.Common.RecordException;
 import net.sf.JRecord.CsvParser.ICsvLineParser;
 import net.sf.JRecord.CsvParser.CsvDefinition;
 import net.sf.JRecord.CsvParser.ParserManager;
@@ -56,26 +83,30 @@ public class CharLine extends BasicLine implements AbstractLine {
 
 
 
+	@SuppressWarnings("deprecation")
 	@Override
-	public Object getField(IFieldDetail field) {
+	public Object getField(int typeId, IFieldDetail field) {
 
 		if (field.isFixedFormat()) {
-			if (field.getType() == Type.ftChar
-			||  field.getType() == Type.ftCharRightJust
-			||  field.getType() == Type.ftCharRestOfRecord 
-			||  TypeManager.getInstance().getType(field.getType()) == TypeManager.getInstance().getType(Type.ftChar)) {
+			if (typeId == Type.ftChar
+			||  typeId == Type.ftCharRightJust
+			||  typeId == Type.ftCharRestOfRecord 
+			||  TypeManager.getInstance().getType(typeId) == TypeManager.getInstance().getType(Type.ftChar)) {
 				return getFieldText(field);
 			}
 
-			Type type = TypeManager.getSystemTypeManager().getType(field.getType());
-			byte[] bytes = getData(field.getPos(), field.getLen());
+			Type type = TypeManager.getSystemTypeManager().getType(typeId);
+
+            int pos =  field.calculateActualPosition(this);
+            
+			byte[] bytes = getData(pos, field.getLen());
 			FieldDetail tmpField = new FieldDetail(field.getFontName(), field.getDescription(),
-					field.getType(), field.getDecimal() ,field.getFontName(), field.getFormat(), field.getParamater());
+					typeId, field.getDecimal() ,field.getFontName(), field.getFormat(), field.getParamater());
 			tmpField.setPosLen(1, bytes.length);
 
 			return type.getField(bytes, 1, tmpField);
 		} else {
-			return layout.formatCsvField(field, field.getType(), data.toString());
+			return layout.formatCsvField(field, typeId, data.toString());
 		}
 	}
 
@@ -94,7 +125,7 @@ public class CharLine extends BasicLine implements AbstractLine {
 
 
 	private String getFieldText(IFieldDetail fldDef) {
-		int start = fldDef.getPos() - 1;
+		int start = fldDef.calculateActualPosition(this) - 1;
 		String tData = data;
 
 		int tempLen = fldDef.getLen();
@@ -155,40 +186,50 @@ public class CharLine extends BasicLine implements AbstractLine {
 	public void replace(byte[] rec, int start, int len) {
 
 	}
+	
+	@Override
+	public void setData(byte[] newVal) {
+		setData(Conversion.toString(newVal, layout.getFontName()));
+	}
+
 
 	@Override
 	public void setData(String newVal) {
 		data = newVal;
+		clearOdBuffers();
 	}
 
 
 
 	@Override
-	public void setField(IFieldDetail field, Object value)
-			throws RecordException {
+	protected void setField(int typeId , IFieldDetail field, Object value) {
 
 		if (field.isFixedFormat()) {
 			String s = "";
-			Type type = TypeManager.getSystemTypeManager().getType(field.getType());
+			Type type = TypeManager.getSystemTypeManager().getType(typeId);
 			if (value != null) {
 				s = value.toString();
 			}
 
 			s = type.formatValueForRecord(field, s);
 
-			if (s.length() < field.getLen()
+			int len = field.getLen();
+			if (s.length() < len
 			&&	type instanceof TypeChar && ! ((TypeChar) type).isLeftJustified()) {
-				s = Conversion.padFront(s, field.getLen() - s.length(), ' ');
+				s = Conversion.padFront(s, len - s.length(), ' ');
 			} 
-			updateData(field.getPos(), field.getLen(), s);
+			updateData(field.calculateActualPosition(this), len, s);
 			
+			
+			super.checkForOdUpdate(field);
+
 		} else {
 	        ICsvLineParser parser = ParserManager.getInstance().get(field.getRecord().getRecordStyle());
-	        Type typeVal = TypeManager.getSystemTypeManager().getType(field.getType());
+	        Type typeVal = TypeManager.getSystemTypeManager().getType(typeId);
 	        String s = typeVal.formatValueForRecord(field, value.toString());
 
             data =
-            		parser.setField(field.getPos() - 1,
+            		parser.setField(field.calculateActualPosition(this) - 1,
             				typeVal.getFieldType(),
             				data,
             				new CsvDefinition(layout.getDelimiter(), field.getQuote()), s);
@@ -196,18 +237,18 @@ public class CharLine extends BasicLine implements AbstractLine {
 	}
 
 	@Override
-	public String setFieldHex(int recordIdx, int fieldIdx, String val)
-			throws RecordException {
+	public String setFieldHex(int recordIdx, int fieldIdx, String val) {
 
 		return null;
 	}
 
 	@Override
-	public void setFieldText(int recordIdx, int fieldIdx, String value)
-			throws RecordException {
+	public void setFieldText(int recordIdx, int fieldIdx, String value) {
 		FieldDetail fldDef = layout.getRecord(recordIdx).getField(fieldIdx);
+		
+		super.checkForOdUpdate(fldDef);
 
-		updateData(fldDef.getPos(), fldDef.getLen(), value);
+		updateData(fldDef.calculateActualPosition(this), fldDef.getLen(), value);
 	}
 
 	private void updateData(int pos, int length, String value) {
@@ -238,5 +279,30 @@ public class CharLine extends BasicLine implements AbstractLine {
     public Object clone() {
     	return lineProvider.getLine(layout, data);
     }
+
+    
+
+	@Override
+	public boolean isDefined(IFieldDetail field) {
+		if (this.data == null || data.length() <= field.getPos()) {
+			return false;
+		}
+
+		if (TypeManager.isNumeric(field.getType())) {
+			int e = Math.min(field.getPos() + field.getLen(), data.length());
+			for (int i = field.getPos() - 1; i < e; i++) {
+				switch (data.charAt(i)) {
+				case ' ':
+				case 0:
+					break;
+				default:
+					return true;
+				}
+			}
+			return false;
+		}
+		return true;
+		
+	}
 
 }

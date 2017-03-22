@@ -4,41 +4,69 @@
  *
  * Purpose:
  */
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.CsvParser;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
 
+import net.sf.JRecord.Types.Type;
+
 /**
  * Basic CSV line parser. Basically
  *
  *   - If the Field start with {Quote}; the fields is ended by {Quote}{Field-Seperator}
- *   - Otherwise the field ends with a {Field-Seperator}
+ *   - Otherwise the field ends with a {Field-Separator}
  *
  * @author Bruce Martin
  *
  */
-public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvLineParser {
+public class BasicCsvLineParser extends BaseCsvLineParser implements ICsvLineParser {
 
     private static BasicCsvLineParser instance = new BasicCsvLineParser(false);
 	public final int delimiterOrganisation;
+	protected final boolean textFieldsInQuotes;
 
 
     public BasicCsvLineParser(boolean quoteInColumnNames) {
-    	this(quoteInColumnNames, ICsvDefinition.NORMAL_SPLIT, false);
+    	this(quoteInColumnNames, ICsvDefinition.NORMAL_SPLIT, false, false);
     }
 
 
 
 	public BasicCsvLineParser(boolean quoteInColumnNames, int delimiterOrganisation) {
-		this(quoteInColumnNames, delimiterOrganisation, false);
+		this(quoteInColumnNames, delimiterOrganisation, false, false);
 	}
 
-
-	public BasicCsvLineParser(boolean quoteInColumnNames, int delimiterOrganisation, boolean allowReturnInFields) {
+	public BasicCsvLineParser(boolean quoteInColumnNames, int delimiterOrganisation, boolean allowReturnInFields, boolean textFieldsInQuotes) {
 		super(quoteInColumnNames, allowReturnInFields);
 		this.delimiterOrganisation = delimiterOrganisation;
+		this.textFieldsInQuotes = textFieldsInQuotes;
 	}
 
 
@@ -49,7 +77,7 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
 	 * @param lineDef Csv Definition
      * @return the number of fields
      */
-    public int getFieldCount(String line, ICsvDefinition lineDef) {
+    public final int getFieldCount(String line, ICsvDefinition lineDef) {
         String[] fields = split(line, lineDef, 0);
 
         if (fields == null) {
@@ -62,9 +90,9 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
     /**
      * Get a specific field from a line
      *
-     * @see ICsvLineParser#getField(int, String, String, String)
+     * @see ICsvLineParser#getField(int, String, ICsvDefinition)
      */
-    public String getField(int fieldNumber, String line, ICsvDefinition lineDef) {
+    public final String getField(int fieldNumber, String line, ICsvDefinition lineDef) {
         String[] fields = split(line, lineDef, fieldNumber);
 
         if (fields == null  || fields.length <= fieldNumber || fields[fieldNumber] == null) {
@@ -93,7 +121,7 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
     
 
     @Override
-	public List<String> getFieldList(String line, ICsvDefinition csvDefinition) {
+	public final List<String> getFieldList(String line, ICsvDefinition csvDefinition) {
     	String[] fields = split(line, csvDefinition, 0);
     	if (fields == null) {
             return new ArrayList<String>(1);
@@ -109,7 +137,7 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
 	}
 
 
-    private void update4quote(String[] fields, int fieldNumber, String quote ) {
+    protected void update4quote(String[] fields, int fieldNumber, String quote ) {
         if (isQuote(quote)
         && fields[fieldNumber].startsWith(quote)
         && fields[fieldNumber].endsWith(quote)) {
@@ -127,7 +155,7 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
     }
 
 	/**
-     * @see ICsvLineParser#setField(int, int, String, String, String, String)
+     * @see ICsvLineParser#setField(int, int, String, ICsvDefinition, String)
      */
     public final String setField(int fieldNumber, int fieldType, String line, ICsvDefinition lineDef,
             String newValue) {
@@ -148,7 +176,8 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
     	if (s == null) {
     		s = "";
     	} else if  (quote != null && quote.length() > 0
-		        && (   s.indexOf(lineDef.getDelimiter()) >= 0
+		        && (   (textFieldsInQuotes & (fieldType != Type.NT_NUMBER))
+		        	||	s.indexOf(super.getDelimFromCsvDef(lineDef)) >= 0
 		//        	|| s.indexOf(quote) >= 0
 		        	|| s.startsWith(quote)
 		        	|| s.indexOf('\n') >= 0 || s.indexOf('\r') >= 0)) {
@@ -157,9 +186,9 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
         return s;
     }
     /**
-     * Initialise array
+     * Initialize array
      * @param count array size
-     * @return initialised array
+     * @return initialized array
      */
     private String[] initArray(int count) {
         String[] ret = new String[count];
@@ -174,7 +203,7 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
 
 	/**
 	 * Split a supplied line into its Fields. This only applies to
-	 * Comma / Tab seperated files
+	 * Comma / Tab separated files
 	 *
 	 * @param line line to be split
 	 * @param lineDefinition Csv Definition
@@ -184,8 +213,9 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
 	 */
 	public final String[] split(String line, ICsvDefinition lineDefinition, int min) {
 
-		if ((lineDefinition.getDelimiter() == null || line == null)
-		||  ("".equals(lineDefinition.getDelimiter()))) {
+		String delimiter = super.getDelimFromCsvDef(lineDefinition);
+		if ((delimiter == null || line == null)
+		||  ("".equals(delimiter))) {
 			return null;
 		}
 
@@ -196,7 +226,7 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
 		boolean keep = true;
 		String quote = lineDefinition.getQuote();
 
-		tok = new StringTokenizer(line, lineDefinition.getDelimiter(), true);
+		tok = new StringTokenizer(line, delimiter, true);
 		len = tok.countTokens();
 		temp = new String[Math.max(len, min)];
 
@@ -206,7 +236,7 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
 		        temp[i] = tok.nextToken();
 //		        if (min == 4) System.out.print("->>" + (i) + " " + keep + " >" + temp[i]
 //		                        + "< >" + delimiter + "< ");
-		        if (lineDefinition.getDelimiter().equals(temp[i])) {
+		        if (delimiter.equals(temp[i])) {
 		            if (keep) {
 		                temp[i++] = "";
 		               // if (min == 4) System.out.print(" clear ");
@@ -229,20 +259,20 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
 		        s = tok.nextToken();
 		        if (building) {
 		            buf.append(s);
-		            if (s.endsWith(quote)) {
+		            if (endOfField(buf.length(), s, quote)) {
 		                //buf.delete(buf.length() - 1, buf.length());
 		                temp[i++] = buf.toString();
 		                building = false;
 		                //buf.delete(0, buf.length());
 		                keep = false;
 		            }
-		        } else if (lineDefinition.getDelimiter().equals(s)) {
+		        } else if (delimiter.equals(s)) {
 		            if (keep) {
 		                temp[i++] = "";
 		            }
 		            keep = true;
 		        } else if (s.startsWith(quote)
-		        	   && (! s.endsWith(quote) || s.length() == quote.length())) {
+		        	   && (! endOfField(0, s, quote))) {
 		            buf = new StringBuffer(s);
 		            building = true;
 		        } else {
@@ -265,9 +295,10 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
 		newLength = Math.max(i, min + 1);
 		if (newLength != temp.length) {
 		    ret = new String[newLength];
-		    for (j = 0; j < i; j++) {
-		        ret[j] = temp[j];
-		    }
+		    System.arraycopy(temp, 0, ret, 0, i);
+//		    for (j = 0; j < i; j++) {
+//		        ret[j] = temp[j];
+//		    }
 		    for (j = i; j < newLength; j++) {
 		        ret[j] = "";
 		    }
@@ -276,12 +307,20 @@ public final class BasicCsvLineParser extends BaseCsvLineParser implements ICsvL
 		return ret;
 	}
 
+	
+	/**
+	 * check if it is end of the fields
+	 */
+	protected boolean  endOfField(int startsAt, String s, String quote) {
+		return startsAt + s.length() > quote.length() && (s.endsWith(quote));
+	}
+
 	/**
 	 * is quote present
 	 * @param quote quote string
 	 * @return if it defines a quote
 	 */
-	private boolean isQuote(String quote) {
+	protected final boolean isQuote(String quote) {
 	    return quote != null && quote.length() > 0;
 	}
 

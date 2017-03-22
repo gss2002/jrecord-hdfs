@@ -3,14 +3,43 @@
  *
  * This class stores the description of one field in a record.
  */
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Common;
 
-//import net.sf.JRecord.Details.RecordDetail;
+import net.sf.JRecord.External.Def.DependingOnDtls;
+import net.sf.JRecord.Option.IOptionResult;
+import net.sf.JRecord.Option.IOptionType;
+import net.sf.JRecord.Option.OptionResult;
+import net.sf.JRecord.Option.OptionType;
 
 
 /**
  * This class stores the description of one field in a record (or Line).
- * It is used by the {@link RecordDetail} class
+ * It is used by the <b>RecordDetail</b> class
  *
  * <pre>
  *     LayoutDetail  - Describes a file
@@ -52,6 +81,16 @@ public class FieldDetail implements IFieldDetail {
 		public int getSourceIndex() {
 			return 0;
 		}
+
+		/* (non-Javadoc)
+		 * @see net.sf.JRecord.Common.AbstractRecord#calculateActualPosition(net.sf.JRecord.Common.AbstractIndexedLine, int)
+		 */
+		@Override
+		public int calculateActualPosition(AbstractIndexedLine line, DependingOnDtls dependingOnDtls, int pos) {
+			return pos;
+		}
+		
+		
 	};
 	private int pos;
 	private int len;
@@ -65,8 +104,11 @@ public class FieldDetail implements IFieldDetail {
 	private final String paramater;
 	//private String quote;
 	private AbstractRecord record = DEFAULT_RECORD;
+	
 	private Object defaultValue = null;
 	private String groupName = "";
+	private boolean occursDependingOnValue = false;
+	private DependingOnDtls dependingOnDtls = null;
 
 
 	/**
@@ -203,6 +245,27 @@ public class FieldDetail implements IFieldDetail {
 	}
 
 
+	/**
+	 * Calculate actual position in the line using data in the line
+	 * @param line 
+	 * @return actual position adjusted for any occurs depending
+	 */
+	@Override
+	public int calculateActualPosition(AbstractIndexedLine line) {
+		return record.calculateActualPosition(line, dependingOnDtls, pos);
+	}
+
+
+
+
+	/* (non-Javadoc)
+	 * @see net.sf.JRecord.Common.IFieldDetail#calculateActualEnd(net.sf.JRecord.Common.AbstractIndexedLine)
+	 */
+	@Override
+	public int calculateActualEnd(AbstractIndexedLine line) {
+		return calculateActualPosition(line) + len - 1;
+	}
+
 
 	/* (non-Javadoc)
 	 * @see net.sf.JRecord.Common.IFieldDetail#getType()
@@ -313,7 +376,6 @@ public class FieldDetail implements IFieldDetail {
 	/* (non-Javadoc)
 	 * @see net.sf.JRecord.Common.IFieldDetail#setRecord(net.sf.JRecord.Common.AbstractRecord)
 	 */
-	@Override
 	public void setRecord(AbstractRecord record) {
 		this.record = record;
 	}
@@ -372,4 +434,71 @@ public class FieldDetail implements IFieldDetail {
 	public final void setGroupName(String groupName) {
 		this.groupName = groupName;
 	}
+
+
+	/**
+	 * @return the occursDependingOnValue
+	 */
+	public final boolean isOccursDependingOnValue() {
+		return occursDependingOnValue;
+	}
+
+
+	/**
+	 * @param occursDependingOnValue the occursDependingOnValue to set
+	 */
+	public final void setOccursDependingOnValue(boolean occursDependingOnValue) {
+		this.occursDependingOnValue = occursDependingOnValue;
+	}
+
+
+	/**
+	 * @return the dependingOnDtls
+	 */
+	public final DependingOnDtls getDependingOnDtls() {
+		return dependingOnDtls;
+	}
+
+
+	/**
+	 * @param dependingOnDtls the dependingOnDtls to set
+	 */
+	public final void setDependingOnDtls(DependingOnDtls dependingOnDtls) {
+		this.dependingOnDtls = dependingOnDtls;
+	}
+
+
+	@Override
+	public IOptionResult getOption(IOptionType type) {
+		if (type == OptionType.REQUIRED) {
+			return OptionResult.YES;
+		}
+		return OptionResult.UNKOWN;
+	}
+	
+	public static final FieldDetail newFixedWidthField(
+					   final String pName,
+	        		   final int pType,
+	        		   final int pos,
+					   final int len,
+	        		   final int pDecimal,
+	        		   final String pFont) {
+		FieldDetail r = new FieldDetail(pName, "", pType, pDecimal, pFont, 0, "" /* pFormat, pParamater*/);
+		
+		r.setPosLen(pos, len);
+		
+		return r;
+	}
+	
+	public static final FieldDetail newCsvField(
+			   final String pName,
+			   final int pType,
+			   final int pos,
+			   final int pDecimal,
+			   final String pFont) {
+	FieldDetail r = new FieldDetail(pName, "", pType, pDecimal, pFont, 0, "" /* pFormat, pParamater*/);
+	
+	r.setPosOnly(pos);
+	return r;
+}
  }

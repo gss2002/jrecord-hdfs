@@ -16,6 +16,31 @@
  *     to the record package (ie RecordException + new Constant interface
  *
  */
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Types;
 
 import java.math.BigInteger;
@@ -23,7 +48,6 @@ import java.math.BigInteger;
 import net.sf.JRecord.Common.CommonBits;
 import net.sf.JRecord.Common.Conversion;
 import net.sf.JRecord.Common.IFieldDetail;
-import net.sf.JRecord.Common.RecordException;
 
 /**
  * Define a Decimal or Hex Type
@@ -50,7 +74,7 @@ public class TypeDecimalHex extends TypeNum {
      * </ol>
      */
     public TypeDecimalHex(final int typeId) {
-        super(false, true, true, true, true);
+        super(false, true, true, true, true, true, false);
 
         isNumeric = typeId == Type.ftDecimal;
         setNumeric(isNumeric);
@@ -58,15 +82,16 @@ public class TypeDecimalHex extends TypeNum {
 
 
     /**
-     * @see net.sf.JRecord.Types.Type#getField(byte[], int, net.sf.JRecord.Common.FieldDetail)
+     * @see net.sf.JRecord.Types.Type#getField(byte[], int, IFieldDetail)
      */
     public Object getField(byte[] record,
               final int position,
 			  final IFieldDetail field) {
         String s; 
         int endOfField = record.length;
-        if (field.getType() != Type.ftCharRestOfRecord && field.getEnd() < endOfField) {
-        	endOfField = field.getEnd();
+        int end = position + field.getLen() - 1;
+		if (field.getType() != Type.ftCharRestOfRecord && end < endOfField) {
+        	endOfField = end;
         }
         
         s = Conversion.getDecimal(record, position - 1, endOfField);
@@ -79,13 +104,12 @@ public class TypeDecimalHex extends TypeNum {
 
 
     /**
-     * @see net.sf.JRecord.Types.Type#setField(byte[], int, net.sf.JRecord.Common.FieldDetail, java.lang.Object)
+     * @see net.sf.JRecord.Types.Type#setField(byte[], int, IFieldDetail, Object)
      */
     public byte[] setField(byte[] record,
             final int position,
 			final IFieldDetail field,
-			final Object value)
-    throws RecordException {
+			final Object value) {
 
 		int pos = position - 1;
 		int len = field.getLen();

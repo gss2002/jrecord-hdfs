@@ -15,13 +15,37 @@
  *     so that it can be used seperately. So classes have been moved
  *     to the record package (ie RecordException + new Constant interface
  */
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Types;
 
 import java.math.BigInteger;
 
 import net.sf.JRecord.Common.Conversion;
 import net.sf.JRecord.Common.IFieldDetail;
-import net.sf.JRecord.Common.RecordException;
 
 /**
  * Mainframe Packed Decimal Type.
@@ -41,21 +65,22 @@ public class TypePackedDecimal extends TypeNum {
      * fields.
      */
     public TypePackedDecimal() {
-        super(false, true, true, false, true);
+        super(false, true, true, false, true, false, false);
     }
 
     public TypePackedDecimal(boolean positive) {
-        super(false, true, true, positive, true);
+        super(false, true, true, positive, true, false, false);
     }
 
     /**
-     * @see net.sf.JRecord.Types.Type#getField(byte[], int, net.sf.JRecord.Common.FieldDetail)
+     * @see net.sf.JRecord.Types.Type#getField(byte[], int, IFieldDetail)
      */
     public Object getField(byte[] record,
             final int position,
 			final IFieldDetail field) {
         int pos = position - 1;
-	    int min = java.lang.Math.min(field.getEnd(), record.length);
+        int end = position + field.getLen() - 1;
+	    int min = java.lang.Math.min(end, record.length);
 	    int fldLength = min - pos;
 
         String s = Conversion.getMainframePackedDecimal(record,
@@ -67,13 +92,13 @@ public class TypePackedDecimal extends TypeNum {
 
 
     /**
-     * @see net.sf.JRecord.Types.Type#setField(byte[], int, net.sf.JRecord.Common.FieldDetail, java.lang.Object)
+     * @see net.sf.JRecord.Types.Type#setField(byte[], int, IFieldDetail, Object)
      */
+    @Override
     public byte[] setField(byte[] record,
             final int position,
 			final IFieldDetail field,
-			Object value)
-    throws RecordException {
+			Object value) {
 
 		int pos = position - 1;
 		int len = field.getLen();

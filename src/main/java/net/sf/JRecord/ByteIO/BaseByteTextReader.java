@@ -1,3 +1,28 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.ByteIO;
 
 import java.io.IOException;
@@ -9,7 +34,7 @@ import net.sf.JRecord.Common.Conversion;
 /**
  * Reads a standard Text file (like standard readLine of Class BufferedReader) except it will return an
  * Array of Bytes (instead of a String). This allows binary data to be in a line (i.e. using X'FF' as a field
- * seperator). It has a limit of 256kb on the line size.
+ * Separator). It has a limit of 256kb on the line size.
  *
  * @author  Bruce Martin
  * @version 0.68
@@ -33,7 +58,7 @@ public abstract class BaseByteTextReader extends AbstractByteReader {
 			}
 		};
 	//private static int MAX_LINE_SIZE = 750;
-	private static int MAX_LINE_SIZE = BUFFER_SIZE*16;
+	private static int MAX_LINE_SIZE = BUFFER_SIZE*8;
 	private static final byte[] NO_EOL = EMPTY;
 	protected byte[] eol = null;
 
@@ -145,7 +170,11 @@ public abstract class BaseByteTextReader extends AbstractByteReader {
 			if (check4lf && (buffer[lineArray[lno+1] - eolLength - 1] == byteLF)) {
 				eolLength += 1;
 			}
-			ret = new byte[lineArray[lno+1] -  srcPos - eolLength];
+			if (lno+1 < lineArray.length) {
+				ret = new byte[lineArray[lno+1] -  srcPos - eolLength];
+			} else {
+				ret = new byte[buffer.length - srcPos];
+			}
 			bytesRead += eolLength;
 		}
 		System.arraycopy(buffer, srcPos, ret, 0, ret.length);
@@ -157,8 +186,9 @@ public abstract class BaseByteTextReader extends AbstractByteReader {
 
 	@Override
 	public final void close() throws IOException {
-		in.close();
-
+		if (in != null) {
+			in.close();
+		}
 		in=null;
 	}
 

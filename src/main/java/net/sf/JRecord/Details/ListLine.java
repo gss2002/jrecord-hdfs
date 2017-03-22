@@ -1,12 +1,40 @@
+/*  -------------------------------------------------------------------------
+ *
+ *                Project: JRecord
+ *    
+ *    Sub-Project purpose: Provide support for reading Cobol-Data files 
+ *                        using a Cobol Copybook in Java.
+ *                         Support for reading Fixed Width / Binary / Csv files
+ *                        using a Xml schema.
+ *                         General Fixed Width / Csv file processing in Java.
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+
 package net.sf.JRecord.Details;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import net.sf.JRecord.Common.Constants;
+import net.sf.JRecord.Common.Conversion;
 import net.sf.JRecord.Common.FieldDetail;
 import net.sf.JRecord.Common.IFieldDetail;
-import net.sf.JRecord.Common.RecordException;
 import net.sf.JRecord.Common.XmlConstants;
 
 public abstract class ListLine extends BaseLine {
@@ -26,36 +54,6 @@ public abstract class ListLine extends BaseLine {
 	}
 
 	/**
-	 * @see java.lang.Object#clone()
-	 */
-	public Object clone() {
-	        Object ret = null;
-	
-	        try { ret = super.clone(); } catch (Exception e) {}
-	
-	        if (! (ret instanceof XmlLine)) {
-	        	XmlLine line = new XmlLine(layout, preferredLayout);
-	        	for (int i = 0; i < fields.size(); i++) {
-	//        		Object o = fields.get(i);
-	//        		if (o != null
-	//        		&& ! (o instanceof String
-	//        		   || o instanceof Boolean
-	//        		   || o instanceof BigInteger
-	//        		   || o instanceof BigDecimal)) {
-	//					   o = o.toString();
-	//				}
-	        		try {
-	        			line.setRawField(preferredLayout, i, fields.get(i));
-	        		} catch (Exception e) {
-					}
-	        	}
-	        	ret = line;
-	        }
-	
-	        return ret;
-	    }
-
-	/**
 	 * @see net.sf.JRecord.Details.AbstractLine#getData()
 	 */
 	public byte[] getData() {
@@ -70,11 +68,13 @@ public abstract class ListLine extends BaseLine {
 	}
 
 	/**
-	 * @see net.sf.JRecord.Details.AbstractLine#getField(net.sf.JRecord.Common.FieldDetail)
+	 * @see net.sf.JRecord.Details.AbstractLine#getField(IFieldDetail)
 	 */
-	public Object getField(IFieldDetail field) {
+	public Object getField(int typeId, IFieldDetail field) {
 	    return getFieldRaw(preferredLayout, field.getPos() - getAdj());
 	}
+	
+	
 
 	/**
 	 * @see net.sf.JRecord.Details.AbstractLine#getField(int, int)
@@ -175,9 +175,9 @@ public abstract class ListLine extends BaseLine {
 	}
 
 	/**
-	 * @see net.sf.JRecord.Details.AbstractLine#setField(net.sf.JRecord.Common.FieldDetail, java.lang.Object)
+	 * @see net.sf.JRecord.Details.AbstractLine#setField(IFieldDetail, Object)
 	 */
-	public void setField(IFieldDetail field, Object value) throws RecordException {
+	public void setField(IFieldDetail field, Object value) {
 		if (field == null && (value == null || "".equals(value.toString()))) return;
 		setRawField(preferredLayout, field.getPos() - getAdj(), value);
 	}
@@ -187,7 +187,7 @@ public abstract class ListLine extends BaseLine {
 	/**
 	 * @see net.sf.JRecord.Details.AbstractLine#setField(int, int, java.lang.Object)
 	 */
-	public void setField(int recordIdx, int fieldIdx, Object val) throws RecordException {
+	public void setField(int recordIdx, int fieldIdx, Object val) {
 		setRawField(recordIdx, getFieldNumber(recordIdx, fieldIdx), val);
 	}
 	
@@ -196,7 +196,7 @@ public abstract class ListLine extends BaseLine {
 	}
 
 	public void setRawField(int recordIdx, int fieldIdx, Object val)
-			throws RecordException {
+			{
 
     	int endFieldNum = XmlConstants.END_INDEX; //layout.getRecordIndex(XmlConstants.END_ELEMENT);
         for (int i = fields.size(); i <= fieldIdx; i++) {
@@ -227,7 +227,7 @@ public abstract class ListLine extends BaseLine {
 	/**
 	 * @see net.sf.JRecord.Details.AbstractLine#setField(java.lang.String, java.lang.Object)
 	 */
-	public void setField(String fieldName, Object value) throws RecordException {
+	public void setField(String fieldName, Object value) {
 	    setField(getFieldFromName(fieldName), value);
 	}
 
@@ -235,17 +235,16 @@ public abstract class ListLine extends BaseLine {
 	/**
 	 * @see net.sf.JRecord.Details.AbstractLine#setFieldHex(int, int, java.lang.String)
 	 */
-	public String setFieldHex(int recordIdx, int fieldIdx, String val) 	throws RecordException {
+	public String setFieldHex(int recordIdx, int fieldIdx, String val) 	{
 	    return ""; //super.setFieldHex(recordIdx, fieldIdx, val);
 	}
 
 	/**
 	 * @see net.sf.JRecord.Details.AbstractLine#setFieldText(int, int, java.lang.String)
 	 */
-	public void setFieldText(int recordIdx, int fieldIdx, String value)
-			throws RecordException {
-				setField(recordIdx, fieldIdx, value);
-			}
+	public void setFieldText(int recordIdx, int fieldIdx, String value) {
+		setField(recordIdx, fieldIdx, value);
+	}
 
 	/**
 	 * @see net.sf.JRecord.Details.AbstractLine#setWriteLayout(int)
@@ -282,5 +281,20 @@ public abstract class ListLine extends BaseLine {
 			fldDef = layout.getRecord(preferredLayout).getField(fieldName);
 		}
 		return fldDef;
+	}
+	
+	@Override
+	public boolean isDefined(IFieldDetail fld) {
+		return isDefined(0, fld.getPos() - getAdj());
+	}
+	
+	@Override
+	public boolean isDefined(int rec, int pos) {
+		return fields != null && pos < fields.size() && fields.get(pos) != null;
+	}
+
+	@Override
+	public void setData(byte[] newVal) {
+		setData(Conversion.toString(newVal, layout.getFontName()));
 	}
 }

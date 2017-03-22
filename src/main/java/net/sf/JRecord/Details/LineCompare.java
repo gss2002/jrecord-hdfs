@@ -4,6 +4,34 @@
  *
  * Purpose:
  */
+/*  -------------------------------------------------------------------------
+ *
+ *                Project: JRecord
+ *    
+ *    Sub-Project purpose: Provide support for reading Cobol-Data files 
+ *                        using a Cobol Copybook in Java.
+ *                         Support for reading Fixed Width / Binary / Csv files
+ *                        using a Xml schema.
+ *                         General Fixed Width / Csv file processing in Java.
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+
 package net.sf.JRecord.Details;
 
 import java.math.BigDecimal;
@@ -81,8 +109,10 @@ public class LineCompare implements Comparator<AbstractLine> {
         while (ret == 0 && i < this.numFields2compare) {
             idx = fields2compare[i];
             if (fieldType[i] == Type.NT_DATE) {
-                Date d1 = toDate(l1.getField(this.recordIdx, idx));
-                Date d2 = toDate(l2.getField(this.recordIdx, idx));
+                @SuppressWarnings("deprecation")
+				Date d1 = toDate(l1.getField(this.recordIdx, idx));
+                @SuppressWarnings("deprecation")
+				Date d2 = toDate(l2.getField(this.recordIdx, idx));
                 if (d1 == null) {
                     ret = -1;
                     if (d2 == null) {
@@ -105,8 +135,10 @@ public class LineCompare implements Comparator<AbstractLine> {
             		ret = -1;
             	}
             } else {
-                String s1 = toString(l1.getField(this.recordIdx, idx));
-                String s2 = toString(l2.getField(this.recordIdx, idx));
+                @SuppressWarnings("deprecation")
+				String s1 = toString(l1.getField(this.recordIdx, idx));
+                @SuppressWarnings("deprecation")
+				String s2 = toString(l2.getField(this.recordIdx, idx));
 
                 if (fieldType[i] != Type.NT_TEXT) {
                     try {

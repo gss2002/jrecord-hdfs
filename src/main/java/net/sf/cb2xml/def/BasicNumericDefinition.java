@@ -7,12 +7,12 @@ package net.sf.cb2xml.def;
  * 
  * BasicNumericDefinition("Mainframe", BasicNumericDefinition.MAINFRAME_SIZES, BasicNumericDefinition.MAINFRAME_SYNC, false, 4, 4)
  * BasicNumericDefinition("Fujitsu", BasicNumericDefinition.FUJITSU_SIZES, BasicNumericDefinition.FUJITSU_SYNC, true, 4, 8)
- * BasicNumericDefinition("Open Cobol", BasicNumericDefinition.OPEN_COBOL_SIZES, BasicNumericDefinition.OPEN_COBOL_SYNC, true, 4, 8)
- * BasicNumericDefinition("Open Cobol bs2000", BasicNumericDefinition.BS2000_SIZES, BasicNumericDefinition.BS2000_SYNC, true, 4, 8)
- * BasicNumericDefinition("Open Cobol MVS", BasicNumericDefinition.OPEN_COBOL_MVS_SIZES, 
- *                                    BasicNumericDefinition.OPEN_COBOL_MVS_SYNC, true, 4, 8)
- * BasicNumericDefinition("Open Cobol Micro Focus", BasicNumericDefinition.MICROFOCUS_SIZES, 
- *                                     BasicNumericDefinition.MICROFOCUS_SIZES_SYNC, , true, 1, 1)
+ * BasicNumericDefinition("GNU Cobol", BasicNumericDefinition.OPEN_COBOL_SIZES, BasicNumericDefinition.OPEN_COBOL_SYNC, true, 4, 8)
+ * BasicNumericDefinition("GNU Cobol bs2000", BasicNumericDefinition.BS2000_SIZES, BasicNumericDefinition.BS2000_SYNC, true, 4, 8)
+ * BasicNumericDefinition("GNU Cobol MVS", BasicNumericDefinition.OPEN_COBOL_MVS_SIZES, 
+ *                                  BasicNumericDefinition.OPEN_COBOL_MVS_SYNC, true, 4, 8)
+ * BasicNumericDefinition("GNU Cobol Micro Focus", BasicNumericDefinition.MICROFOCUS_SIZES, 
+ *                                   BasicNumericDefinition.MICROFOCUS_SIZES_SYNC, , true, 1, 1)
  *
  * 
  * @author bm
@@ -25,6 +25,8 @@ public class BasicNumericDefinition implements NumericDefinition {
 	public final static int[]  MAINFRAME_SIZES = {2, 4, 8};
 	public final static int[]  MAINFRAME_SYNC = {2, 2, 4, 4}; /* not sure wether the last size is 4 or 8 */
 	private final static int[]  MAINFRAME_DIGITS = {4, 9, 18};
+	
+//	private static int[] tmpSizesUsed = {2, 4, 8};
 	
 	public final static int[]  FUJITSU_SIZES = MAINFRAME_SIZES;
 	public final static int[]  FUJITSU_SYNC = {2, 2, 4, 4};
@@ -43,6 +45,11 @@ public class BasicNumericDefinition implements NumericDefinition {
 	
 	public static final int[] MAX_COMP_SIZE = {2, 4, 6, 9, 11, 14, 16, 18};
 	public static final int[] MAX_POSITIVE_COMP_SIZE = {2, 4, 7, 9, 12, 14, 16, 19};
+	
+//	public static final NumericDefinition MAINFRAME_NUMERIC_DEFINITION = new BasicNumericDefinition(
+//			"", tmpSizesUsed, MAINFRAME_SYNC, false, 4 ,4
+//	);
+
 
 	// initialise for mainframe
 	private int[] compSizesUsed = MAINFRAME_SIZES;
@@ -92,11 +99,13 @@ public class BasicNumericDefinition implements NumericDefinition {
     
 	public int getBinarySize(String usage, int numDigits, boolean positive, boolean sync) {
 		int storageLength = numDigits;
-        if ("computational-1".equals(usage)) {
+        if (Cb2xmlConstants.COMP_1.equalsIgnoreCase(usage)) {
         	storageLength = 4;
-        } else if ("computational-2".equals(usage)) {
+        } else if (Cb2xmlConstants.COMP_2.equalsIgnoreCase(usage)) {
 	        	storageLength = 8;
-        } else if ("computational-3".equals(usage) || "computational-6".equals(usage)) {
+        } else if (Cb2xmlConstants.COMP_3.equalsIgnoreCase(usage) 
+        		|| Cb2xmlConstants.PACKED_DECIMAL.equalsIgnoreCase(usage)
+        		|| Cb2xmlConstants.COMP_6.equalsIgnoreCase(usage)) {
             storageLength = (numDigits) / 2 + 1;
         } else if (isBinary(usage)) {
         	storageLength = compSizesUsed[compSizesUsed.length - 1];
@@ -123,9 +132,9 @@ public class BasicNumericDefinition implements NumericDefinition {
 				case (4) : syncOn = syncSizes[2];	break;
 				default : syncOn = syncSizes[3];					
 			}
-		} else if ("computational-1".equals(usage)) {
+		} else if (Cb2xmlConstants.COMP_1.equals(usage)) {
 			syncOn =floatSync;
-		} else if ("computational-2".equals(usage)) {
+		} else if (Cb2xmlConstants.COMP_2.equals(usage)) {
 			syncOn =doubleSync;
 		}
 		return syncOn;
@@ -135,9 +144,9 @@ public class BasicNumericDefinition implements NumericDefinition {
 	public int chkStorageLength(int storageLength, String usage) {
 		int ret = storageLength;
 		if (storageLength == 0) {
-			if  ("computational-1".equals(usage)) {
+			if  (Cb2xmlConstants.COMP_1.equalsIgnoreCase(usage)) {
 				ret = 10;
-			} else if  ("computational-2".equals(usage)) {
+			} else if  (Cb2xmlConstants.COMP_2.equalsIgnoreCase(usage)) {
 				ret = 18;
 			}
 		}
@@ -146,8 +155,10 @@ public class BasicNumericDefinition implements NumericDefinition {
 	}
 	
 	private boolean isBinary(String usage) {
-		return "binary".equals(usage) ||"computational".equals(usage) 
-			|| "computational-4".equals(usage) || "computational-5".equals(usage);
+		return Cb2xmlConstants.BINARY.equalsIgnoreCase(usage) ||Cb2xmlConstants.COMP.equalsIgnoreCase(usage) 
+			|| Cb2xmlConstants.COMP_4.equalsIgnoreCase(usage) || Cb2xmlConstants.COMP_5.equalsIgnoreCase(usage)
+			|| Cb2xmlConstants.COMP_6.equalsIgnoreCase(usage);
 	}
+	
 
 }

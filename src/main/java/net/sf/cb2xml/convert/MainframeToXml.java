@@ -12,6 +12,7 @@ import java.io.BufferedReader;
 import java.io.Reader;
 import java.io.StringReader;
 
+import net.sf.cb2xml.def.Cb2xmlConstants;
 import net.sf.cb2xml.util.XmlUtils;
 
 import org.w3c.dom.Document;
@@ -60,10 +61,12 @@ public class MainframeToXml {
     this.resultDocument = XmlUtils.getNewXmlDocument();
     int bufferLength = mainframeTextBuffer.length();
     Element documentElement = copyBookXml.getDocumentElement();
-    Element recordNode = (Element) documentElement.
-                                         getFirstChild();
+    //Element recordNode = (Element) documentElement.
+    //                                     getFirstChild();
+    
+    Element recordNode = Utils.getFirstElement(documentElement);
     Element resultRoot = resultDocument.createElement(documentElement.getTagName());
-    int recordLength = Integer.parseInt(recordNode.getAttribute("storage-length"));
+    int recordLength = Integer.parseInt(recordNode.getAttribute(Cb2xmlConstants.STORAGE_LENGTH));
 
     for (int offset = 0; offset < bufferLength; offset += recordLength) {
         Element resultTree = convertNode(recordNode, offset);
@@ -74,28 +77,31 @@ public class MainframeToXml {
   }
 
   private Element convertNode(Element element, int offset) {
-    String resultElementName = element.getAttribute("name");
+    String resultElementName = element.getAttribute(Cb2xmlConstants.NAME);
     Element resultElement = resultDocument.createElement(resultElementName);
-    int position = Integer.parseInt(element.getAttribute("position"));
-    int length = Integer.parseInt(element.getAttribute("storage-length"));
+    int position = Integer.parseInt(element.getAttribute(Cb2xmlConstants.POSITION));
+    int length = Integer.parseInt(element.getAttribute(Cb2xmlConstants.STORAGE_LENGTH));
+    boolean numeric = Cb2xmlConstants.TRUE.equalsIgnoreCase(element.getAttribute(Cb2xmlConstants.NUMERIC));
     int childElementCount = 0;
     NodeList nodeList = element.getChildNodes();
     for (int i = 0; i < nodeList.getLength(); i++) {
       org.w3c.dom.Node node = nodeList.item(i);
       if (node.getNodeType() == org.w3c.dom.Node.ELEMENT_NODE) {
         Element childElement = (Element) node;
-        if (!childElement.getAttribute("level").equals("88")) {
+        if (!childElement.getAttribute(Cb2xmlConstants.LEVEL).equals("88")) {
           childElementCount++;
-          if (childElement.hasAttribute("occurs")) {
-            int childOccurs = Integer.parseInt(childElement.getAttribute("occurs"));
-            int childPosition = Integer.parseInt(childElement.getAttribute(
-                "position"));
+          if (childElement.hasAttribute(Cb2xmlConstants.OCCURS)) {
+            int childOccurs = Integer.parseInt(childElement.getAttribute(Cb2xmlConstants.OCCURS));
+//            int childPosition = Integer.parseInt(childElement.getAttribute(
+//                Cb2xmlAttributes.POSITION));
             int childLength = Integer.parseInt(childElement.getAttribute(
-                "storage-length"));
-            int singleChildLength = childLength / childOccurs;
+                Cb2xmlConstants.STORAGE_LENGTH));
+            int singleChildLength = childLength; // / childOccurs; // possible error - bug 10 occurs error
             for (int j = 0; j < childOccurs; j++) {
-              resultElement.appendChild(convertNode(childElement,
-                  childPosition + j * singleChildLength));
+              resultElement.appendChild(
+            		  convertNode(
+            				  childElement,
+            				  /*childPosition +*/offset + j * singleChildLength));
             }
           }
           else {
@@ -104,17 +110,20 @@ public class MainframeToXml {
         }
       }
     }
-    if (childElementCount == 0) {
+    if (childElementCount == 0) {  
       if (offset > 0) {
         position = position + offset;
       }
       String text = null;
       try {
         text = mainframeBuffer.substring(position - 1, position + length - 1);
+        if (numeric) {
+        	text = text.trim();
+        }
       }
       catch (Exception e) {
         System.err.println(e);
-        System.err.println("element = " + element.getAttribute("name"));
+        System.err.println("element = " + element.getAttribute(Cb2xmlConstants.NAME));
         System.err.println("position = " + position);
         System.err.println("length = " + length);
         System.err.println("Mainframe buffer length = " +
@@ -122,7 +131,7 @@ public class MainframeToXml {
       }
       Text textNode = resultDocument.createTextNode(text);
       resultElement.appendChild(textNode);
-      //resultElement.setAttribute("position", position + "");
+      //resultElement.setAttribute(Attributes.POSITION, position + "");
       //resultElement.setAttribute("length", length + "");
     }
     return resultElement;

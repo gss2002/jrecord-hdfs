@@ -1,3 +1,28 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.ExternalRecordSelection;
 
 import java.util.ArrayList;
@@ -7,6 +32,23 @@ public class ExternalGroupSelection<fs extends ExternalSelection> implements Ext
 	private ArrayList<fs> items ;
 	private int type = ExternalSelection.TYPE_AND;
 
+
+	public static ExternalGroupSelection<ExternalSelection> newAnd(ExternalSelection... selections) {
+		ExternalGroupSelection<ExternalSelection> ret = new ExternalGroupSelection<ExternalSelection>(selections.length);
+		
+		ret.addAll(selections);
+		
+		return ret;
+	}
+	
+	public static ExternalGroupSelection<ExternalSelection> newOr(ExternalSelection... selections) {
+		ExternalGroupSelection<ExternalSelection> ret = new ExternalGroupSelection<ExternalSelection>(selections.length);
+		ret.type = ExternalSelection.TYPE_OR;
+		
+		ret.addAll(selections);
+		
+		return ret;
+	}
 
 
 	public ExternalGroupSelection() {
@@ -29,6 +71,11 @@ public class ExternalGroupSelection<fs extends ExternalSelection> implements Ext
 		return items.add(e);
 	}
 
+	private void addAll(@SuppressWarnings("unchecked") fs...selections ) {
+		for (fs sel: selections) {
+			items.add(sel);
+		}
+	}
 	/**
 	 * @param index
 	 * @return

@@ -11,10 +11,43 @@
  * Version 0.61 (2007/03/29)
  *    - CSV Split for when there a blank columns in the CSV file
  */
+/*  -------------------------------------------------------------------------
+ *
+ *                Project: JRecord
+ *    
+ *    Sub-Project purpose: Provide support for reading Cobol-Data files 
+ *                        using a Cobol Copybook in Java.
+ *                         Support for reading Fixed Width / Binary / Csv files
+ *                        using a Xml schema.
+ *                         General Fixed Width / Csv file processing in Java.
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+
 package net.sf.JRecord.Details;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import net.sf.JRecord.Common.CommonBits;
 import net.sf.JRecord.Common.Constants;
@@ -22,13 +55,15 @@ import net.sf.JRecord.Common.Conversion;
 import net.sf.JRecord.Common.FieldDetail;
 import net.sf.JRecord.Common.IBasicFileSchema;
 import net.sf.JRecord.Common.IFieldDetail;
-import net.sf.JRecord.Common.RecordException;
 import net.sf.JRecord.CsvParser.ICsvLineParser;
 import net.sf.JRecord.CsvParser.BinaryCsvParser;
 import net.sf.JRecord.CsvParser.CsvDefinition;
 import net.sf.JRecord.CsvParser.ParserManager;
+import net.sf.JRecord.Option.IRecordPositionOption;
+import net.sf.JRecord.Option.Options;
 import net.sf.JRecord.Types.Type;
 import net.sf.JRecord.Types.TypeManager;
+import net.sf.JRecord.cgen.defc.ILayoutDetails4gen;
 
 
 
@@ -77,29 +112,37 @@ import net.sf.JRecord.Types.TypeManager;
  * @version 0.55
  *
  */
-public class LayoutDetail implements IBasicFileSchema {
+public class LayoutDetail implements IBasicFileSchema, ILayoutDetails4gen {
+	
 
 	private String layoutName;
 	private String description;
 	private byte[] recordSep;
-	private int layoutType;
+	private final int layoutType;
 	private RecordDetail[] records;
-	private boolean binary = false;
+	private boolean binary = false, binaryField=false;
 	private String fontName = "";
 	private String eolString;
 	//private TypeManager typeManager;
-	private RecordDecider decider;
+	private final RecordDecider decider;
 
 	private HashMap<String, IFieldDetail> fieldNameMap = null;
 	private HashMap<String, IFieldDetail> recordFieldNameMap = null;
+	private HashSet<String> duplicateFieldNames = null;
+	
 	private String delimiter = "";
 	private int fileStructure;
 
 	private int recordCount;
-
+	
 	private boolean treeStructure = false;
 
-	private final boolean multiByteCharset, csvLayout;
+	private final boolean multiByteCharset, csvLayout, headerTrailerRecords;
+	
+	private final byte spaceByte, initByte ;
+	
+	private final int maxPossibleLength, minPossibleLength;
+	
 
 	/**
 	 * This class holds a one or more records
@@ -114,7 +157,6 @@ public class LayoutDetail implements IBasicFileSchema {
 	 * @param pRecordDecider used to decide which layout to use
 	 * @param pFileStructure file structure
 	 *
-	 * @throws RecordException multiple field delimiters used
 	 */
 	public LayoutDetail(final String pLayoutName,
 	        		   final RecordDetail[] pRecords,
@@ -124,8 +166,24 @@ public class LayoutDetail implements IBasicFileSchema {
 	        		   final String pEolIndicator,
 	        		   final String pFontName,
 	        		   final RecordDecider pRecordDecider,
-	        		   final int pFileStructure)
+	        		   final int pFileStructure) 
 	{
+		this(	pLayoutName, pRecords, pDescription, pLayoutType, pRecordSep, pEolIndicator, 
+				pFontName, pRecordDecider, pFileStructure, null, false, -1);
+	}
+	
+	public LayoutDetail(final String pLayoutName,
+ 		   final RecordDetail[] pRecords,
+ 		   final String pDescription,
+ 		   final int pLayoutType,
+ 		   final byte[] pRecordSep,
+ 		   final String pEolIndicator,
+ 		   final String pFontName,
+ 		   final RecordDecider pRecordDecider,
+ 		   final int pFileStructure,
+ 		   final IRecordPositionOption rpOpt,
+ 		         boolean  initToSpaces,
+ 		         int recordLength) {
 	    super();
 
         int i, j;
@@ -142,18 +200,28 @@ public class LayoutDetail implements IBasicFileSchema {
 		this.decider       = pRecordDecider;
 		this.fileStructure = pFileStructure;
 		this.recordCount   = pRecords.length;
+//		this.setDecider(pRecordDecider);
+		
 
 		if (fontName == null) {
 		    fontName = "";
 		}
 		this.multiByteCharset = Conversion.isMultiByte(fontName);
+		byte[] t = Conversion.getBytes(" ", fontName);
+		if (t.length == 1) {
+			this.spaceByte = t[0];
+		} else {
+			this.spaceByte = 0;
+		}
+		
+		initByte = initToSpaces? spaceByte: 0;
 
 		while (recordCount > 0 && pRecords[recordCount - 1] == null) {
 		    recordCount -= 1;
 		}
 
 		if (recordSep == null) {
-			if (fontName == null || "".equals(fontName)) {
+			if ("".equals(fontName)) {
 				recordSep = Constants.SYSTEM_EOL_BYTES;
 			} else {
 				recordSep = CommonBits.getEolBytes(null, "", fontName);
@@ -172,31 +240,35 @@ public class LayoutDetail implements IBasicFileSchema {
 		    eolString = Conversion.toString(pRecordSep, pFontName);
 		}
 
+	    if (recordCount >= 1) {
+	        int numFields;
+	        for (j = 0; (! binaryField) && j < recordCount; j++) {
+	            numFields =  pRecords[j].getFieldCount();
+	            for (i = 0; (! binaryField) && i < numFields; i++) {
+	            	binaryField = pRecords[j].isBinary(i);
+	            }
+	        }
+	    }
 
 		switch (pLayoutType) {
 			case Constants.rtGroupOfBinaryRecords:
 			case Constants.rtFixedLengthRecords:
-			case Constants.rtBinaryRecord:
+//			case Constants.rtBinaryRecord:
 			    binary = true;
 			break;
+			case Constants.rtBinaryRecord:
             case Constants.rtGroupOfRecords:
 			case Constants.rtRecordLayout:
-			    if (recordCount >= 1) {
-			        int numFields;
-			        for (j = 0; (! binary) && j < recordCount; j++) {
-			            numFields =  pRecords[j].getFieldCount();
-			            for (i = 0; (! binary) && i < numFields; i++) {
-			                binary = pRecords[j].isBinary(i);
-			            }
-			        }
-			    }
+				binary = binaryField;
 			break;
 			default:
 		}
 
 		boolean csv = false;
+		boolean hasFilePosRecords = false;
 	    for (j = 0; j < recordCount; j++) {
 	    	RecordDetail record =  pRecords[j];
+	    	hasFilePosRecords = hasFilePosRecords || record.getRecordPositionOption() != null;
 	    	if ((record.getRecordType() == Constants.rtDelimitedAndQuote
 			          || record.getRecordType() == Constants.rtDelimited)) {
 	    		csv = true;
@@ -228,7 +300,25 @@ public class LayoutDetail implements IBasicFileSchema {
 		        }
 	    	}
 	    }
+
+	    //List<E>
+	    int maxSize = 0;
+	    int minSize = recordCount > 0 ? Integer.MAX_VALUE: 0;
+		for (i = 0; i < recordCount; i++) {
+			maxSize = java.lang.Math.max(maxSize, records[i].getLength());
+			minSize = java.lang.Math.min(minSize, records[i].getMinumumPossibleLength());
+		}
+		maxPossibleLength = recordLength>= 0 ? recordLength : maxSize;
+		minPossibleLength = minSize;
+
+	    this.headerTrailerRecords = hasFilePosRecords;
 	    csvLayout = csv;
+	    
+//	    this.setDecider(pRecordDecider);
+		if (decider != null && decider instanceof IRecordDeciderX) {
+		((IRecordDeciderX) decider).setLayout(this);
+	}
+
 	}
 
 
@@ -243,6 +333,7 @@ public class LayoutDetail implements IBasicFileSchema {
 		return records[layoutIdx].getField(fieldIdx);
 	}
 
+	
 	/**
 	 * Get the field Description array
 	 *
@@ -292,10 +383,16 @@ public class LayoutDetail implements IBasicFileSchema {
 	 * Get all the record Details.
 	 *
 	 * @return all the record layouts
-	 * @deprecated use getRecord instead
+	 * @deprecated use getRecordsAsList or getRecord instead
 	 */
 	public RecordDetail[] getRecords() {
 		return records;
+	}
+	
+	public List<RecordDetail> getRecordsAsList() {
+		return Collections.unmodifiableList(
+						Arrays.asList(records)
+		);
 	}
 
 	/**
@@ -328,7 +425,23 @@ public class LayoutDetail implements IBasicFileSchema {
 		return records[recordNum];
 	}
 
-
+	/**
+	 * Return record by record name
+	 * @param recordName requested record name
+	 * @return requested record.
+	 */
+	public RecordDetail getRecord(String recordName) {
+		if (recordName == null) {
+			throw new RuntimeException("Record name can not be null");
+		}
+		for (RecordDetail rec : records) {
+			 if (recordName.equalsIgnoreCase(rec.getRecordName())) {
+				 return rec;
+			 }
+		}
+		throw new RuntimeException("Record: " + recordName + " was not found");
+	}
+	
 	/**
 	 * get number of records in the layout
 	 *
@@ -371,6 +484,33 @@ public class LayoutDetail implements IBasicFileSchema {
     }
 
 
+	/**
+	 * @return the headerTrailerRecords
+	 */
+	public final boolean hasHeaderTrailerRecords() {
+		return headerTrailerRecords;
+	}
+	
+	public SpecialRecordIds getPositionRecordId() {
+		int h=-1, m=-1, t=-1;
+		for (int i = 0; i < recordCount; i++) {
+			if (getRecord(i).getRecordPositionOption() == Options.RP_FIRST_RECORD_IN_FILE) {
+				h = i;
+			} else if (getRecord(i).getRecordPositionOption() == Options.RP_MIDDLE_RECORDS) {
+				m = i;
+			} else if (getRecord(i).getRecordPositionOption() == Options.RP_LAST_RECORD_IN_FILE) {
+				t = i;
+			}
+		}	
+		return new SpecialRecordIds(h, m, t);
+	}
+	/**
+	 * @return the binaryField
+	 */
+    public final boolean hasBinaryField() {
+		return binaryField;
+	}
+
     /**
      * Get the Charset Name (ie Font name)
      *
@@ -404,15 +544,26 @@ public class LayoutDetail implements IBasicFileSchema {
      * @return the maximum length
      */
     public int getMaximumRecordLength() {
-        int i;
-        int maxSize = 0;
-		for (i = 0; i < recordCount; i++) {
-			maxSize = java.lang.Math.max(maxSize, records[i].getLength());
-		}
-
-		return maxSize;
+    	return maxPossibleLength;
+//        int i;
+//        int maxSize = 0;
+//		for (i = 0; i < recordCount; i++) {
+//			maxSize = java.lang.Math.max(maxSize, records[i].getLength());
+//		}
+//
+//		return maxSize;
     }
 
+    public int getMinimumRecordLength() {
+    	return minPossibleLength;
+//        int i;
+//        int maxSize = 0;
+//		for (i = 0; i < recordCount; i++) {
+//			maxSize = java.lang.Math.max(maxSize, records[i].getLength());
+//		}
+//
+//		return maxSize;
+    }
 
     /**
      * Return the file structure
@@ -420,16 +571,17 @@ public class LayoutDetail implements IBasicFileSchema {
      * @return file structure
      */
     public int getFileStructure() {
-        int ret = fileStructure;
+        int ret;// = fileStructure;
 
         if (fileStructure == Constants.IO_NAME_1ST_LINE &&  isBinCSV()) {
         	ret = Constants.IO_BIN_NAME_1ST_LINE;
         } else if (fileStructure > Constants.IO_TEXT_LINE) {
+        	ret = fileStructure;
         } else if (fileStructure == Constants.IO_TEXT_LINE) {
 			ret = checkTextType();
         } else if (getLayoutType() == Constants.rtGroupOfBinaryRecords
                &&  recordCount > 1) {
-		    ret = Constants.IO_BINARY;
+		    ret = Constants.IO_BINARY_IBM_4680;
 		} else if (isBinary()) {
 		    ret = Constants.IO_FIXED_LENGTH;
 		} else if ( isBinCSV()) {
@@ -490,7 +642,19 @@ public class LayoutDetail implements IBasicFileSchema {
     }
 
 
-    /**
+//    /**
+//	 * @param decider the decider to set
+//	 */
+//	protected final void setDecider(RecordDecider decider) {
+//		this.decider = decider;
+//		
+//		if (decider != null && decider instanceof IRecordDeciderX) {
+//			((IRecordDeciderX) decider).setLayout(this);
+//		}
+//	}
+
+
+	/**
      * Get a fields value
      *
      * @param record record containg the field
@@ -498,7 +662,10 @@ public class LayoutDetail implements IBasicFileSchema {
      * @param field field to retrieve
      *
      * @return fields Value
+     * 
+     * @deprecated use getField on Line
      */
+    @Deprecated 
     public Object getField(final byte[] record, int type, IFieldDetail field) {
 
     	//System.out.print(" ---> getField ~ 1");
@@ -506,7 +673,14 @@ public class LayoutDetail implements IBasicFileSchema {
             return TypeManager.getSystemTypeManager().getType(type) //field.getType())
 					.getField(record, field.getPos(), field);
         }
-
+        return getCsvField(record, type, field);
+     }
+    
+    /**
+     * @deprecated internal JRecord use !!!
+     */
+    @Deprecated 
+    public final Object getCsvField(final byte[] record, int type, IFieldDetail field) {
         if (isBinCSV()) {
         	//System.out.print(" 3 ");
         	String value = (new BinaryCsvParser(delimiter)).getValue(record, field);
@@ -514,9 +688,13 @@ public class LayoutDetail implements IBasicFileSchema {
         	return formatField(field,  type, value);
         } else {
 	        return formatCsvField(field,  type, Conversion.toString(record, field.getFontName()));
-        }
+        }  	
     }
 
+    /**
+     * @deprecated internal JRecord use !!!
+     */
+    @Deprecated 
     public final Object formatCsvField(IFieldDetail field,  int type, String value) {
         ICsvLineParser parser = ParserManager.getInstance().get(field.getRecord().getRecordStyle());
         String val = parser.getField(field.getPos() - 1,
@@ -538,7 +716,7 @@ public class LayoutDetail implements IBasicFileSchema {
         		        		   field.getDecimal(), field.getFontName(),
         		        		   field.getFormat(), field.getParamater());
 
-            fldDef.setRecord(field.getRecord());
+            updateRecordInfo(field, fldDef);
 
             fldDef.setPosLen(1, rec.length);
 
@@ -556,6 +734,14 @@ public class LayoutDetail implements IBasicFileSchema {
         return "";
     }
 
+	/**
+	 * @param field
+	 * @param fldDef
+	 */
+	public void updateRecordInfo(IFieldDetail field, FieldDetail fldDef) {
+		
+		fldDef.setRecord(field.getRecord());
+	}
 
     /**
      * Set a fields value
@@ -566,10 +752,10 @@ public class LayoutDetail implements IBasicFileSchema {
      *
      * @return byte[] updated record
      *
-     * @throws RecordException any conversion error
      */
+    @Deprecated
     public byte[] setField(byte[] record, IFieldDetail field, Object value)
-    throws RecordException {
+    {
         return setField(record, field.getType(), field, value);
     }
 
@@ -583,35 +769,42 @@ public class LayoutDetail implements IBasicFileSchema {
      *
      * @return byte[] updated record
      *
-     * @throws RecordException any conversion error
      */
+    @Deprecated
     public byte[] setField(byte[] record, int type, IFieldDetail field, Object value)
-    throws RecordException {
+    {
         if (field.isFixedFormat()) {
             record = TypeManager.getSystemTypeManager().getType(type)
 				.setField(record, field.getPos(), field, value);
         } else  {
-            String font = field.getFontName();
-            ICsvLineParser parser = ParserManager.getInstance().get(field.getRecord().getRecordStyle());
-
-            Type typeVal = TypeManager.getSystemTypeManager().getType(type);
-            String s = typeVal.formatValueForRecord(field, value.toString());
-            //System.out.println(" ---> setField ~ " + delimiter + " ~ " + s + " ~ " + new String(record));
-            if  (isBinCSV()) {
-             	record = (new BinaryCsvParser(delimiter)).updateValue(record, field, s);
-            } else {
-	            String newLine = parser.setField(field.getPos() - 1,
-	            		typeVal.getFieldType(),
-	            		Conversion.toString(record, font),
-	            		new CsvDefinition(delimiter, field.getQuote()), s);
-
-                record = Conversion.getBytes(newLine, font);
-            }
+            record = setCsvField(record, type, field, value);
         }
         //System.out.println(" ---> setField ~ Done");
         return record;
     }
 
+    public byte[] setCsvField(byte[] record, int type, IFieldDetail field, Object value) {
+        
+        String font = field.getFontName();
+        ICsvLineParser parser = ParserManager.getInstance().get(field.getRecord().getRecordStyle());
+
+        Type typeVal = TypeManager.getSystemTypeManager().getType(type);
+        String s = typeVal.formatValueForRecord(field, value.toString());
+        //System.out.println(" ---> setField ~ " + delimiter + " ~ " + s + " ~ " + new String(record));
+        if  (isBinCSV()) {
+         	record = (new BinaryCsvParser(delimiter)).updateValue(record, field, s);
+        } else {
+            String newLine = parser.setField(field.getPos() - 1,
+            		typeVal.getFieldType(),
+            		Conversion.toString(record, font),
+            		new CsvDefinition(delimiter, field.getQuote()), s);
+
+            record = Conversion.getBytes(newLine, font);
+        }
+        
+        //System.out.println(" ---> setField ~ Done");
+        return record;
+    }
 
     /**
      * Get a field for a supplied field-name
@@ -632,6 +825,11 @@ public class LayoutDetail implements IBasicFileSchema {
 
     	return ret;
     }
+    
+    public Set<String> getDuplicateFieldNames() {
+    	buildFieldNameMap();
+    	return duplicateFieldNames;
+    }
 
     private void buildFieldNameMap() {
 
@@ -648,6 +846,7 @@ public class LayoutDetail implements IBasicFileSchema {
 
     		fieldNameMap = new HashMap<String, IFieldDetail>(size);
     		recordFieldNameMap = new HashMap<String, IFieldDetail>(size);
+    		duplicateFieldNames = new HashSet<String>(10);
 
     		for (i = 0; i < recordCount; i++) {
     			//FieldDetail[] flds = records[i].getFields();
@@ -659,6 +858,9 @@ public class LayoutDetail implements IBasicFileSchema {
     			    k = 1;
     			    while (fieldNameMap.containsKey(name.toUpperCase())) {
     			    	name = nameTmp + k++;
+    			    }
+    			    if (k == 2) {
+    			    	duplicateFieldNames.add(fld.getName().toUpperCase());
     			    }
     			    fld.setLookupName(name);
 					fieldNameMap.put(name.toUpperCase(), fld);
@@ -695,7 +897,8 @@ public class LayoutDetail implements IBasicFileSchema {
 	 * get the field delimiter
 	 * @return the field delimeter
 	 */
-    public String getDelimiter() {
+    @Override
+	public String getDelimiter() {
         return delimiter;
     }
 
@@ -815,6 +1018,22 @@ public class LayoutDetail implements IBasicFileSchema {
 	}
 
 
+	/**
+	 * @return the spaceByte
+	 */
+	public final byte getSpaceByte() {
+		return spaceByte;
+	}
+
+
+	/**
+	 * @return the initByte
+	 */
+	public final byte getInitByte() {
+		return initByte;
+	}
+
+	@Override
 	public final boolean isCsvLayout() {
 		return csvLayout;
 	}
@@ -860,6 +1079,69 @@ public class LayoutDetail implements IBasicFileSchema {
 		return	   delimiter != null 
 				&& delimiter.length() > 3
 				&& delimiter.toLowerCase().startsWith("x'");
+	}
+
+
+	/**
+	 * Find requested Field with supplied Field name / Group (or level) name.
+	 * The Group names must be supplied in any sequence they appears in the copybook
+	 *
+	 * <pre>
+	 *  For:
+	 *
+	 *    01 Group-1.
+	 *       05 Group-2.
+	 *          10 Group-3
+	 *             15 Field-1         Pic X(5).
+	 *
+	 * you would code:
+	 *
+	 *   fld = line.getGroupField("Group-1", "Group-2", "Group-3", "Field-1");
+	 *
+	 * or
+	 *
+	 *   fld = line.getGroupField("Group-1", "Group-3", "Field-1");
+	 *   fld = line.getGroupField("Group-3", "Field-1");
+	 *
+	 * </pre>
+	 *
+	 * @param fieldNames group/field names to search for
+	 * @return requested fields
+	 */
+	public final IFieldDetail getGroupField(String...fieldNames) {
+		if (fieldNames == null || fieldNames.length == 0) {
+			return null;
+		}
+		IFieldDetail f = null;
+		List<IFieldDetail> flds;
+		int idx = getRecordIndex(fieldNames[0]);
+		if (idx >= 0 && fieldNames.length > 0) {
+			return records[idx].getGroupFieldX(1, fieldNames);
+		} else {
+			for (RecordDetail r : records) {
+				flds = r.getGroupFields(fieldNames);
+				switch (flds.size()) {
+				case 0: break;
+				case 1:
+					if (f == null) {
+						f = flds.get(0);
+						break;
+					}
+					// deliberate fallthrough
+				default:
+					throw new RuntimeException("Found multiple fields named " + fieldNames[fieldNames.length-1] + "; there should be only one");
+				}
+			}
+		}
+		
+		if (f == null) {
+			StringBuilder b = new StringBuilder();
+			for (String s : fieldNames) {
+				b.append('.').append(s);
+			}
+			throw new RuntimeException("No Field Found: " + b);
+		}
+		return f;
 	}
 }
 

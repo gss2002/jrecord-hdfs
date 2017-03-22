@@ -1,3 +1,28 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Numeric;
 
 import net.sf.JRecord.Types.Type;
@@ -5,21 +30,28 @@ import net.sf.JRecord.Types.Type;
 public class CommonCode {
 
 	public static int commonTypeChecks(
-			int binaryFormat, String usage, String picture, boolean signed, boolean signSeperate,
+			int dialect, String usage, String picture, boolean signed, boolean signSeperate,
 			String signPosition) {
 		int iType = 0;
-		if ("true".equals(signed) ||  picture.startsWith("S")) {
+		if (signed ||  picture.startsWith("S")) {
 			if (signSeperate) {
+				boolean actualDecimal = picture.indexOf('.') >= 0;
+				
+				iType = Type.ftSignSeparateTrail;
 				if ("leading".equals(signPosition)) {
 					iType = Type.ftSignSeparateLead;
-				} else {
-					iType = Type.ftSignSeparateTrail;
+					if (actualDecimal) {
+						iType = Type.ftSignSepLeadActualDecimal;
+					}
+				} else if (actualDecimal) {
+					iType = Type.ftSignSepTrailActualDecimal;
 				}
 			} else {
-				if (binaryFormat == Convert.FMT_MAINFRAME) {
-					iType = Type.ftZonedNumeric;
-				} else {
-					iType = Type.ftFjZonedNumeric;
+				iType = Type.ftGnuCblZonedNumeric;
+				switch (dialect) {
+				case ICopybookDialects.FMT_MAINFRAME: 				iType = Type.ftZonedNumeric;		break;
+				case ICopybookDialects.FMT_FUJITSU:
+				case ICopybookDialects.FMT_FUJITSU_COMMA_DECIMAL:	iType = Type.ftFjZonedNumeric;		break;		
 				}
 			}
 		} else {
@@ -37,7 +69,7 @@ public class CommonCode {
 	 *
 	 * @return wether it is a valid picture
 	 */
-	public static final boolean checkPicture(String pict, char validChar, char decimalChar) {
+	public static final boolean checkPicture(String pict, char validChar, char decimalChar, char altDecimal) {
 
 
 		boolean check = false;
@@ -80,7 +112,7 @@ public class CommonCode {
 						return false;
 					}
 					lastChSearch = true;
-				} else if (ch == decimalChar) {
+				} else if (ch == decimalChar || ch == altDecimal) {
 						if (foundDot) {
 							return false;
 						}
@@ -88,6 +120,9 @@ public class CommonCode {
 				} else {
 					switch (ch) {
 					case '9': lastCh9 = true;			break;
+					case '+':
+					case '-':
+						if (i == pict.length() - 1) break;
 					default : return false;
 					}
 				}
@@ -97,12 +132,12 @@ public class CommonCode {
 		return true;
 	}
 
-
 	public static final boolean checkPictureNumeric(String pict, char decimalChar) {
 		boolean foundDot = false;
 		boolean check = false;
 		boolean minusAllowed = pict.charAt(0) == '-';
 		boolean plusAllowed = pict.charAt(0) == '+';
+        boolean leadingSign = minusAllowed || plusAllowed;
 		char ch;
 		pict = pict.toUpperCase();
 
@@ -129,9 +164,11 @@ public class CommonCode {
 					case 'V':
 						break;
 					case '+':
+                        if (! leadingSign && i == pict.length() - 1) break;
 						if (! plusAllowed) return false;
 						break;
 					case '-':
+                        if (! leadingSign && i == pict.length() - 1) break;
 						if (! minusAllowed) return false;
 						break;
 					case 'S':

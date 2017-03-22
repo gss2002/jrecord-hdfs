@@ -11,6 +11,31 @@
  *     to the record package (ie RecordException + new Constant interface
 
  */
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Jean-Francois Gagnon
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2006, Jean-Francois Gagnon / Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Types;
 
 import net.sf.JRecord.Common.IFieldDetail;
@@ -24,7 +49,9 @@ import net.sf.JRecord.Common.RecordException;
  */
 public class TypeSignSeparate extends TypeNum {
 
-    private boolean isLeadingSign = true;
+    private final boolean isLeadingSign;
+    private final boolean isActualDecimal;
+    
     /**
      * Define mainframe Zoned Decimal Type
      *
@@ -35,15 +62,16 @@ public class TypeSignSeparate extends TypeNum {
      * @param typeId Type Identifier
      */
     public TypeSignSeparate(final int typeId) {
-        super(false, true, true, false, false);
+        super(false, true, true, false, false, false, false);
 
-        isLeadingSign = (typeId == Type.ftSignSeparateLead);
+        isLeadingSign = (typeId == Type.ftSignSeparateLead || typeId == Type.ftSignSepLeadActualDecimal);
+        isActualDecimal = (typeId == Type.ftSignSepLeadActualDecimal || typeId == Type.ftSignSepTrailActualDecimal);
 
     }
 
 
     /**
-     * @see net.sf.JRecord.Types.Type#getField(byte[], int, net.sf.JRecord.Common.FieldDetail)
+     * @see net.sf.JRecord.Types.Type#getField(byte[], int, IFieldDetail)
      */
     public Object getField(byte[] record,
             final int position,
@@ -55,13 +83,12 @@ public class TypeSignSeparate extends TypeNum {
 
 
     /**
-     * @see net.sf.JRecord.Types.Type#setField(byte[], int, net.sf.JRecord.Common.FieldDetail, java.lang.Object)
+     * @see net.sf.JRecord.Types.Type#setField(byte[], int, IFieldDetail, Object)
      */
     public byte[] setField(byte[] record,
             final int position,
 			final IFieldDetail field,
-			Object value)
-    throws RecordException {
+			Object value) {
 
         String val = checkValue(field, toNumberString(value));
         copyRightJust(record, toSignSeparate(val, field),
@@ -71,8 +98,7 @@ public class TypeSignSeparate extends TypeNum {
     }
 
 	@Override
-	public String formatValueForRecord(IFieldDetail field, String value)
-			throws RecordException {
+	public String formatValueForRecord(IFieldDetail field, String value) {
 		return toSignSeparate(checkValue(field, toNumberString(value)), field);
 	}
 
@@ -84,12 +110,10 @@ public class TypeSignSeparate extends TypeNum {
 	 * @param field  Field Detail
 	 *
 	 * @return number-string
-	 * @throws RecordException any errors generated in the
-	 * conversion
+	 * 
 	 */
 	private String toSignSeparate(String num,
-                                  IFieldDetail field)
-    throws RecordException {
+                                  IFieldDetail field) {
 
 
 		if (num == null || num.length() == 0 || num.equals("-") || num.equals("+")) {
@@ -107,19 +131,29 @@ public class TypeSignSeparate extends TypeNum {
             if (num.startsWith("+")) {
                 ret = ret.substring(1);
             }
-
 		}
 
-        if (ret.length() >= field.getLen() && field.isFixedFormat()) {
-            throw new RecordException("Value: " + ret + " is too large to fit field");
+  
+        int len = field.getLen() - 1;
+        int decimal = field.getDecimal();
+		if (decimal > 0 && isActualDecimal && len > 2) {
+        	ret = paddingString(ret, len - 1, '0', true);
+        	ret = ret.substring(0, ret.length() - decimal) + "." + 
+        		  ret.substring(ret.length() - decimal);
+        } else {
+        	ret = paddingString(ret, len, '0', true);
         }
 
-        ret = paddingString(ret, field.getLen() - 1, '0', true);
-
-        if (isLeadingSign) {
+        if ("+".equals(sign) && ret.length() == field.getLen()) {
+        	
+        } else if (isLeadingSign) {
             ret = sign + ret;
         } else {
             ret = ret + sign;
+        }
+
+        if (ret.length() > field.getLen() && field.isFixedFormat()) {
+            throw new RecordException("Value: " + ret + " is too large to fit field: " + field.getLen());
         }
 
 		return ret;
@@ -145,7 +179,7 @@ public class TypeSignSeparate extends TypeNum {
         ret = numSignSeparate.trim();
         if (isLeadingSign) {
             if (ret.length() > 0 && ret.charAt(0) == '+') {
-            	ret = ret.substring(1);    
+            	ret = ret.substring(1);
             }
         } else {
 			int lastIdx = ret.length() - 1;
@@ -156,9 +190,8 @@ public class TypeSignSeparate extends TypeNum {
         }
 
         if ("-".equals(sign)) {
-            ret = sign + ret;
+        	ret = sign + ret;
         }
-
         return ret;
 
     }

@@ -1,3 +1,28 @@
+/*  -------------------------------------------------------------------------
+ *
+ *            Sub-Project: JRecord Common
+ *    
+ *    Sub-Project purpose: Common Low-Level Code shared between 
+ *                        the JRecord and Record Projects
+ *    
+ *                 Author: Bruce Martin
+ *    
+ *                License: LGPL 2.1 or latter
+ *                
+ *    Copyright (c) 2016, Bruce Martin, All Rights Reserved.
+ *   
+ *    This library is free software; you can redistribute it and/or
+ *    modify it under the terms of the GNU Lesser General Public
+ *    License as published by the Free Software Foundation; either
+ *    version 2.1 of the License, or (at your option) any later version.
+ *   
+ *    This library is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU Lesser General Public License for more details.
+ *
+ * ------------------------------------------------------------------------ */
+      
 package net.sf.JRecord.Numeric;
 
 import java.util.HashMap;
@@ -10,7 +35,7 @@ import net.sf.JRecord.Types.Type;
 public class LoadConversion {
 
 	private final static int[] STANDARD_TYPES = {
-		Type.ftFjZonedNumeric,
+		Type.ftFjZonedNumeric,  Type.ftGnuCblZonedNumeric,
 		Type.ftBinaryBigEndian, Type.ftFloat, Type.ftDouble, Type.ftPackedDecimal,
 		Type.ftBinaryBigEndian, Type.ftBinaryInt
 	};
@@ -29,6 +54,7 @@ public class LoadConversion {
 		typeConversion.put("f",    Type.ftFloat);
 		typeConversion.put("d",    Type.ftDouble);
 		typeConversion.put("mvszd",Type.ftZonedNumeric);
+		typeConversion.put("zd9",  Type.ftGnuCblZonedNumeric);
 		typeConversion.put("zd",   Type.ftFjZonedNumeric);
 		typeConversion.put("rm",   Type.ftRmComp);
 		typeConversion.put("rmp",  Type.ftRmCompPositive);
@@ -43,7 +69,7 @@ public class LoadConversion {
 		if (properties != null && properties.containsKey(propConversion + idx)) {
 			try {
 				int code = Integer.parseInt(properties.getProperty(propConversion + idx));
-				int binaryId = getIntProperty("CnvBinaryId." + idx, Convert.FMT_BIG_ENDIAN);
+				int binaryId = getIntProperty("CnvBinaryId." + idx, ICopybookDialects.FMT_BIG_ENDIAN);
 				int floatSync = getIntProperty("CnvFloatSync." + idx, 4);
 				int doubleSync = getIntProperty("CnvDoubleSync." + idx, 8);
 
